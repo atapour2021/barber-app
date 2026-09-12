@@ -7,4 +7,3 @@ export * from './educational/educational.module';
 export * from './services/services.module';
 export * from './uploads/uploads.module';
 export * from './users/users.module';
-

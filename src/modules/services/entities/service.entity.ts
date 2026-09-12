@@ -1,3 +1,4 @@
+import { Appointment } from 'src/modules/appointments/entities/appointment.entity';
 import { Barbershop } from 'src/modules/barbershops/entities/barbershop.entity';
 import {
   Entity,
@@ -7,6 +8,7 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  OneToMany,
 } from 'typeorm';
 
 @Entity('services')
@@ -32,6 +34,9 @@ export class Service {
   @ManyToOne(() => Barbershop, (shop) => shop.services)
   @JoinColumn({ name: 'barbershopId' })
   barbershop: Barbershop;
+
+  @OneToMany(() => Appointment, (appointment) => appointment.service)
+  appointments: Appointment[];
 
   @Column()
   barbershopId: string;

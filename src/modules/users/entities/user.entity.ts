@@ -1,4 +1,3 @@
-import { Role } from 'src/enums/role.';
 import { Appointment } from 'src/modules/appointments/entities/appointment.entity';
 import { Barber } from 'src/modules/barbers/entities/barber.entity';
 import { Barbershop } from 'src/modules/barbershops/entities/barbershop.entity';
@@ -31,12 +30,8 @@ export class User {
   @Column({ nullable: true })
   profileImage?: string; // Changed to optional
 
-  @Column({
-    type: 'enum',
-    enum: Role,
-    default: Role.USER,
-  })
-  role!: Role; // Added !
+  @Column({ type: 'text', default: 'USER' })
+  role!: string; // Added !
 
   @Column({ default: true })
   isActive!: boolean; // Added !

@@ -1,16 +1,31 @@
 import { Module } from '@nestjs/common';
-import { AuthModule } from './auth/auth.module';
-import { UsersModule } from './modules/users/users.module';
-import { BarbershopsModule } from './modules/barbershops/barbershops.module';
-import { BarbersModule } from './modules/barbers/barbers.module';
-import { ServicesModule } from './modules/services/services.module';
-import { AppointmentsModule } from './modules/appointments/appointments.module';
-import { EducationalModule } from './modules/educational/educational.module';
-import { CertificatesModule } from './modules/certificates/certificates.module';
-import { UploadsModule } from './modules/uploads/uploads.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { databaseConfig } from './config/database.config';
+import {
+  AppointmentsModule,
+  BarbershopsModule,
+  BarbersModule,
+  CertificatesModule,
+  EducationalModule,
+  ServicesModule,
+  UploadsModule,
+  UsersModule,
+  AuthModule,
+} from './modules';
 
 @Module({
-  imports: [AuthModule, UsersModule, BarbershopsModule, BarbersModule, ServicesModule, AppointmentsModule, EducationalModule, CertificatesModule, UploadsModule],
+  imports: [
+    UsersModule,
+    BarbershopsModule,
+    BarbersModule,
+    ServicesModule,
+    AppointmentsModule,
+    EducationalModule,
+    CertificatesModule,
+    UploadsModule,
+    TypeOrmModule.forRoot(databaseConfig),
+    AuthModule,
+  ],
   controllers: [],
   providers: [],
 })

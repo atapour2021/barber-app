@@ -17,21 +17,17 @@ export class Appointment {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'text' })
   date: Date;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'text' })
   startTime: Date;
 
-  @Column({ type: 'timestamp' })
+  @Column({ type: 'text' })
   endTime: Date;
 
-  @Column({
-    type: 'enum',
-    enum: AppointmentStatus,
-    default: AppointmentStatus.PENDING,
-  })
-  status: AppointmentStatus;
+  @Column({ type: 'text', default: 'pending' })
+  status: string;
 
   @Column({ nullable: true, type: 'text' })
   notes?: string;
