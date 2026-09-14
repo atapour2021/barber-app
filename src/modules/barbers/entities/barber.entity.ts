@@ -27,13 +27,13 @@ export class Barber {
   @Column({ nullable: true })
   profileImage?: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   specialties?: string[];
 
   @Column({ default: true })
   isAvailable!: boolean;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   workingHours?: WorkingHours;
 
   @ManyToOne(() => Barbershop, (shop) => shop.barbers, {

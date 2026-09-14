@@ -1,20 +1,15 @@
+import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-
-  const config = new DocumentBuilder()
-    .setTitle('Barber App API')
-    .setDescription('API documentation for the Barber App')
-    .setVersion('1.0')
-    .addTag('api')
-    .build();
-
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true, transformOptions: { enableImplicitConversion: true } }));
+  app.enableCors();
+  const config = new DocumentBuilder().setTitle('Barber App API').setDescription('API documentation for the Barber App').setVersion('1.0').addBearerAuth().build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
-
+  SwaggerModule.setup('api', app, document, { customSiteTitle: 'Barber API' });
   await app.listen(process.env.PORT ?? 3000);
 }
 void bootstrap();
