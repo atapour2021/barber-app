@@ -14,6 +14,7 @@ import {
   UsersModule,
   AuthModule,
 } from './modules';
+import { LocationsModule } from './modules/locations/locations.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AdminModule } from './modules/admin/admin.module';
 
@@ -31,6 +32,7 @@ import { AdminModule } from './modules/admin/admin.module';
     UploadsModule,
     NotificationsModule,
     AdminModule,
+    LocationsModule,
     TypeOrmModule.forRoot(databaseConfig),
     AuthModule,
   ],
