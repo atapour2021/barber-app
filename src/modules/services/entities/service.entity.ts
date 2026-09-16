@@ -1,5 +1,4 @@
 import { Appointment } from 'src/modules/appointments/entities/appointment.entity';
-import { Barbershop } from 'src/modules/barbershops/entities/barbershop.entity';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -14,36 +13,43 @@ import {
 @Entity('services')
 export class Service {
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  id!: string;
 
   @Column()
-  name: string;
+  name!: string;
 
-  @Column('text')
-  description: string;
+  @Column({ type: 'text', nullable: true })
+  description?: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 2 })
-  price: number;
+  price!: number;
+
+  @Column({ type: 'int' })
+  duration!: number;
 
   @Column({ nullable: true })
-  duration: number;
+  icon?: string;
 
-  @Column({ nullable: true })
-  icon: string;
+  @ManyToOne('Barber', { onDelete: 'CASCADE', nullable: true })
+  @JoinColumn({ name: 'barberId' })
+  barber?: any;
 
-  @ManyToOne(() => Barbershop, (shop) => shop.services)
+  @Column({ name: 'barberId' })
+  barberId!: string;
+
+  @ManyToOne('Barbershop', { onDelete: 'CASCADE', nullable: true })
   @JoinColumn({ name: 'barbershopId' })
-  barbershop: Barbershop;
+  barbershop?: any;
+
+  @Column({ name: 'barbershopId', nullable: true })
+  barbershopId?: string;
 
   @OneToMany(() => Appointment, (appointment) => appointment.service)
-  appointments: Appointment[];
-
-  @Column()
-  barbershopId: string;
+  appointments!: Appointment[];
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt!: Date;
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt!: Date;
 }
