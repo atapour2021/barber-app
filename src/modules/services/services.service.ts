@@ -30,7 +30,9 @@ export class ServicesService {
         if (!b) throw new NotFoundException('Barber not found');
         return b.id;
       }
-      const mine = await this.barberRepo.findOne({ where: { userId: actor.id } });
+      const mine = await this.barberRepo.findOne({
+        where: { userId: actor.id },
+      });
       if (mine) return mine.id;
       throw new BadRequestException('barberId required');
     }
@@ -52,7 +54,7 @@ export class ServicesService {
   async create(dto: CreateServiceDto, actor: any) {
     const barberId = await this.resolveBarberId(actor, dto.barberId);
     const { barberId: _b, ...rest } = dto as any;
-    return this.repo.save(this.repo.create({ ...rest, barberId } as any));
+    return this.repo.save(this.repo.create({ ...rest, barberId }));
   }
 
   findAll(barberId?: string, barbershopId?: string) {

@@ -37,7 +37,10 @@ export class CreateServiceDto {
   @IsString()
   icon?: string;
 
-  @ApiPropertyOptional({ example: 'uuid', description: 'Barber ID (auto-resolved from auth if omitted)' })
+  @ApiPropertyOptional({
+    example: 'uuid',
+    description: 'Barber ID (auto-resolved from auth if omitted)',
+  })
   @IsOptional()
   @IsUUID()
   barberId?: string;

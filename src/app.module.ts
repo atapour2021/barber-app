@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { databaseConfig } from './config/database.config';
 import {
   AppointmentsModule,
+  AvailabilityModule,
   BarbershopsModule,
   BarbersModule,
   CertificatesModule,
@@ -20,6 +21,7 @@ import {
     BarbersModule,
     ServicesModule,
     AppointmentsModule,
+    AvailabilityModule,
     EducationalModule,
     CertificatesModule,
     UploadsModule,

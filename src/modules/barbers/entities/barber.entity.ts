@@ -30,6 +30,9 @@ export class Barber {
     string,
     { start: string; end: string }
   >;
+  @Column({ type: 'simple-json', nullable: true }) breakTime?:
+    | Record<string, { start: string; end: string }>
+    | { start: string; end: string };
   @Column({ type: 'simple-json', nullable: true }) holidays?: string[];
   @Column({ type: 'text', default: BarberStatus.ACTIVE }) status!: string;
   @Column({ default: true }) isAvailable!: boolean;

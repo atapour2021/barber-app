@@ -49,6 +49,49 @@ function assertHolidays(holidays?: string[]) {
     throw new BadRequestException('duplicate holidays');
 }
 
+function isHHmmRange(v: any): boolean {
+  return (
+    v &&
+    typeof v.start === 'string' &&
+    typeof v.end === 'string' &&
+    HHMM.test(v.start) &&
+    HHMM.test(v.end) &&
+    v.start < v.end
+  );
+}
+
+function assertBreakTime(breakTime?: any, workingDays?: string[]) {
+  if (!breakTime) return;
+  if (isHHmmRange(breakTime)) return;
+  if (typeof breakTime !== 'object')
+    throw new BadRequestException('invalid breakTime');
+  for (const [k, v] of Object.entries(breakTime)) {
+    const day = k.toLowerCase();
+    if (!DAYS.includes(day))
+      throw new BadRequestException(`invalid day ${k} in breakTime`);
+    if (
+      workingDays &&
+      workingDays.length &&
+      !workingDays.map((d) => d.toLowerCase()).includes(day)
+    )
+      throw new BadRequestException(`breakTime day ${k} not in workingDays`);
+    if (!isHHmmRange(v))
+      throw new BadRequestException(
+        `invalid breakTime for ${k}, use HH:mm with start < end`,
+      );
+  }
+}
+
+function getBreakForDay(
+  breakTime: any,
+  day: string,
+): { start: string; end: string } | null {
+  if (!breakTime) return null;
+  if (isHHmmRange(breakTime)) return breakTime;
+  const v = breakTime[day] || breakTime[day.toLowerCase()];
+  return isHHmmRange(v) ? v : null;
+}
+
 @Injectable()
 export class BarbersService {
   constructor(
@@ -119,6 +162,7 @@ export class BarbersService {
           throw new BadRequestException(`invalid workingDay ${d}`);
     }
     assertHours(dto.workingDays, dto.workingHours);
+    assertBreakTime((dto as any).breakTime, dto.workingDays);
     assertHolidays(dto.holidays);
     if (
       dto.status &&
@@ -133,6 +177,7 @@ export class BarbersService {
       specialties: dto.specialties,
       workingDays: dto.workingDays?.map((d) => d.toLowerCase()),
       workingHours: dto.workingHours as any,
+      breakTime: (dto as any).breakTime,
       holidays: dto.holidays,
       status: dto.status || BarberStatus.ACTIVE,
       isAvailable: dto.isAvailable ?? true,
@@ -199,6 +244,10 @@ export class BarbersService {
     assertHolidays((dto as any).holidays);
     const mergedDays = (dto.workingDays ?? barber.workingDays) as any;
     assertHours(mergedDays, (dto as any).workingHours ?? barber.workingHours);
+    assertBreakTime(
+      (dto as any).breakTime ?? (barber as any).breakTime,
+      mergedDays,
+    );
     if (
       (dto as any).status &&
       (dto as any).status !== BarberStatus.ACTIVE &&

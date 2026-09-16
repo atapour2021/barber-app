@@ -70,6 +70,14 @@ export class CreateBarberDto {
   @IsOptional()
   @IsObject()
   workingHours?: Record<string, WorkingHourDto>;
+  @ApiPropertyOptional({
+    example: { start: '12:00', end: '13:00' },
+    description:
+      'Daily break (applies to every working day) or per-day map e.g. { monday: { start:"12:00", end:"13:00" } }',
+  })
+  @IsOptional()
+  @IsObject()
+  breakTime?: Record<string, WorkingHourDto> | WorkingHourDto;
   @ApiPropertyOptional({ example: ['2026-03-21'] })
   @IsOptional()
   @IsArray()
