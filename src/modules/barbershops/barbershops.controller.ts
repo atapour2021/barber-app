@@ -1,10 +1,14 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
-import { ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../../common/guards/auth.guard';
 import { CreateBarbershopDto } from './dto/create-barbershop.dto';
 import { UpdateBarbershopDto } from './dto/update-barbershop.dto';
 import { BarbershopsService } from './barbershops.service';
 
 @ApiTags('barbershops')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
 @Controller('barbershops')
 export class BarbershopsController {
   constructor(private readonly service: BarbershopsService) {}
