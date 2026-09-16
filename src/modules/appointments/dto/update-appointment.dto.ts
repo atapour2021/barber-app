@@ -1,3 +1,10 @@
-import { PartialType } from '@nestjs/swagger';
-import { CreateAppointmentDto } from './create-appointment.dto';
-export class UpdateAppointmentDto extends PartialType(CreateAppointmentDto) {}
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
+
+export class UpdateAppointmentDto {
+  @ApiPropertyOptional({ example: 'Please be on time' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
+}
