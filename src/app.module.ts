@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { databaseConfig } from './config/database.config';
 import {
@@ -13,9 +14,11 @@ import {
   UsersModule,
   AuthModule,
 } from './modules';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
+    EventEmitterModule.forRoot({ global: true }),
     UsersModule,
     BarbershopsModule,
     BarbersModule,
@@ -25,6 +28,7 @@ import {
     EducationalModule,
     CertificatesModule,
     UploadsModule,
+    NotificationsModule,
     TypeOrmModule.forRoot(databaseConfig),
     AuthModule,
   ],

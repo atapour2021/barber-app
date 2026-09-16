@@ -1,5 +1,6 @@
 export * from './appointments/appointments.module';
 export * from './availability/availability.module';
+export * from './notifications/notifications.module';
 export * from './auth/auth.module';
 export * from './barbers/barbers.module';
 export * from './barbershops/barbershops.module';

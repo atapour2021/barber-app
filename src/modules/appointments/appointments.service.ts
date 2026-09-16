@@ -5,6 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Appointment } from './entities/appointment.entity';
@@ -13,6 +14,7 @@ import { Service } from '../services/entities/service.entity';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { AppointmentStatus } from 'src/enums/appointment-status';
+import { NotificationEvents } from '../notifications/notifications.events';
 
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   [AppointmentStatus.PENDING]: [
@@ -92,6 +94,7 @@ export class AppointmentsService {
     @InjectRepository(Appointment) private repo: Repository<Appointment>,
     @InjectRepository(Barber) private barberRepo: Repository<Barber>,
     @InjectRepository(Service) private serviceRepo: Repository<Service>,
+    private events: EventEmitter2,
   ) {}
 
   private async getBarberOrFail(barberId: string): Promise<Barber> {
@@ -300,7 +303,7 @@ export class AppointmentsService {
         `Duration must be ${service.duration} minutes`,
       );
     this.validateBarberAvailability(barber, dateStr, start, end);
-    return this.repo.manager.transaction(async (tx) => {
+    const created = await this.repo.manager.transaction(async (tx) => {
       const txRepo = tx.getRepository(Appointment);
       const existing = await txRepo.find({
         where: {
@@ -333,6 +336,11 @@ export class AppointmentsService {
         relations: { user: true, barber: true, service: true },
       });
     });
+    if (created)
+      this.events.emit(NotificationEvents.BOOKING_CREATED, {
+        appointment: created,
+      });
+    return created;
   }
 
   async findAll(actor: any, query: any = {}) {
@@ -414,6 +422,10 @@ export class AppointmentsService {
       );
     e.status = AppointmentStatus.CANCELLED;
     await this.repo.save(e as any);
+    this.events.emit(NotificationEvents.BOOKING_CANCELLED, {
+      appointment: e,
+      actorId: actor?.id,
+    });
     return e;
   }
 
@@ -438,10 +450,20 @@ export class AppointmentsService {
       );
     e.status = status;
     await this.repo.save(e as any);
-    return this.repo.findOne({
+    const updated = await this.repo.findOne({
       where: { id },
       relations: { user: true, barber: true, service: true },
     });
+    if (updated && status === AppointmentStatus.CONFIRMED)
+      this.events.emit(NotificationEvents.BOOKING_CONFIRMED, {
+        appointment: updated,
+      });
+    if (updated && status === AppointmentStatus.CANCELLED)
+      this.events.emit(NotificationEvents.BOOKING_CANCELLED, {
+        appointment: updated,
+        actorId: actor?.id,
+      });
+    return updated;
   }
 
   async update(id: string, dto: UpdateAppointmentDto, actor: any) {
