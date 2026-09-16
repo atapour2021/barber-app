@@ -5,9 +5,14 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
 export class JwtAuthGuard extends BaseAuthGuard('jwt') {
-  constructor(private reflector: Reflector) { super(); }
+  constructor(private reflector: Reflector) {
+    super();
+  }
   canActivate(ctx: ExecutionContext) {
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [ctx.getHandler(), ctx.getClass()]);
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      ctx.getHandler(),
+      ctx.getClass(),
+    ]);
     if (isPublic) return true;
     return super.canActivate(ctx) as any;
   }

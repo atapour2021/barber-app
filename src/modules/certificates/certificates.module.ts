@@ -4,5 +4,9 @@ import { Certificate } from './entities/certificate.entity';
 import { CertificatesController } from './certificates.controller';
 import { CertificatesService } from './certificates.service';
 
-@Module({ imports: [TypeOrmModule.forFeature([Certificate])], controllers: [CertificatesController], providers: [CertificatesService] })
+@Module({
+  imports: [TypeOrmModule.forFeature([Certificate])],
+  controllers: [CertificatesController],
+  providers: [CertificatesService],
+})
 export class CertificatesModule {}

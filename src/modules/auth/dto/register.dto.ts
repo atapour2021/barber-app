@@ -1,9 +1,20 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, Length, Matches, MinLength } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Length,
+  Matches,
+  MinLength,
+} from 'class-validator';
 import { Role } from '../../../enums/role';
 
 export class RegisterDto {
-  @ApiProperty({ example: '0012345679', description: 'National code (10 digits)' })
+  @ApiProperty({
+    example: '0012345679',
+    description: 'National code (10 digits)',
+  })
   @IsString()
   @Length(10, 10)
   @Matches(/^\d{10}$/, { message: 'nationalCode must be 10 digits' })

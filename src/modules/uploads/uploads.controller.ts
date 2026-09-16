@@ -1,6 +1,17 @@
-import { Controller, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { diskStorage } from 'multer';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
@@ -19,7 +30,22 @@ export class UploadsController {
   @Post()
   @ApiOperation({ summary: 'Upload file (authenticated)' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
-  @UseInterceptors(FileInterceptor('file', { storage: diskStorage({ destination: './uploads', filename: (_req, f, cb) => cb(null, `${Date.now()}${path.extname(f.originalname)}`) }) }))
-  upload(@UploadedFile() file: any) { return this.service.handle(file); }
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (_req, f, cb) =>
+          cb(null, `${Date.now()}${path.extname(f.originalname)}`),
+      }),
+    }),
+  )
+  upload(@UploadedFile() file: any) {
+    return this.service.handle(file);
+  }
 }

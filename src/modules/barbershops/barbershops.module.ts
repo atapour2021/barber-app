@@ -4,5 +4,9 @@ import { Barbershop } from './entities/barbershop.entity';
 import { BarbershopsController } from './barbershops.controller';
 import { BarbershopsService } from './barbershops.service';
 
-@Module({ imports: [TypeOrmModule.forFeature([Barbershop])], controllers: [BarbershopsController], providers: [BarbershopsService] })
+@Module({
+  imports: [TypeOrmModule.forFeature([Barbershop])],
+  controllers: [BarbershopsController],
+  providers: [BarbershopsService],
+})
 export class BarbershopsModule {}

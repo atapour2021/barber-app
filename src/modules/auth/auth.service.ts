@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { Repository } from 'typeorm';
@@ -9,18 +13,28 @@ import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
-  constructor(@InjectRepository(User) private repo: Repository<User>, private jwt: JwtService) {}
+  constructor(
+    @InjectRepository(User) private repo: Repository<User>,
+    private jwt: JwtService,
+  ) {}
   private sign(user: User) {
-    return this.jwt.sign({ sub: user.id, username: user.username, role: user.role });
+    return this.jwt.sign({
+      sub: user.id,
+      username: user.username,
+      role: user.role,
+    });
   }
   private sanitize(user: User) {
     const { password, ...rest } = user as any;
     return rest;
   }
   async register(dto: RegisterDto) {
-    const dup = await this.repo.findOne({ where: [{ username: dto.username } as any, { nationalCode: dto.nationalCode } as any] });
+    const dup = await this.repo.findOne({
+      where: [{ username: dto.username }, { nationalCode: dto.nationalCode }],
+    });
     if (dup) {
-      if (dup.username === dto.username) throw new ConflictException('username already taken');
+      if (dup.username === dto.username)
+        throw new ConflictException('username already taken');
       throw new ConflictException('nationalCode already registered');
     }
     const hashed = await bcrypt.hash(dto.password, 10);
@@ -30,7 +44,9 @@ export class AuthService {
     return { user: this.sanitize(saved), access_token: this.sign(saved) };
   }
   async login(dto: LoginDto) {
-    const user = await this.repo.findOne({ where: { username: dto.username } as any });
+    const user = await this.repo.findOne({
+      where: { username: dto.username },
+    });
     if (!user) throw new UnauthorizedException('invalid credentials');
     const ok = await bcrypt.compare(dto.password, user.password);
     if (!ok) throw new UnauthorizedException('invalid credentials');
