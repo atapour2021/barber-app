@@ -15,6 +15,7 @@ import {
   AuthModule,
 } from './modules';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     CertificatesModule,
     UploadsModule,
     NotificationsModule,
+    AdminModule,
     TypeOrmModule.forRoot(databaseConfig),
     AuthModule,
   ],
