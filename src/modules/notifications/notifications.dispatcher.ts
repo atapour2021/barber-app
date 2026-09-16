@@ -1,7 +1,7 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Notification } from './entities/notification.entity';
 import { NotificationChannel } from './channels/notification-channel.interface';
-import { NOTIFICATION_CHANNELS } from './notifications.module';
+import { NOTIFICATION_CHANNELS } from './notifications.constants';
 
 @Injectable()
 export class NotificationDispatcher {

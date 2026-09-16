@@ -11,8 +11,7 @@ import { NotificationsListener } from './notifications.listener';
 import { NotificationsScheduler } from './notifications.scheduler';
 import { NotificationDispatcher } from './notifications.dispatcher';
 import { InAppChannel } from './channels/in-app.channel';
-
-export const NOTIFICATION_CHANNELS = Symbol('NOTIFICATION_CHANNELS');
+import { NOTIFICATION_CHANNELS } from './notifications.constants';
 
 @Module({
   imports: [
