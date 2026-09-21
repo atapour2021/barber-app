@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -17,7 +18,7 @@ import { PasswordResetToken } from './entities/password-reset-token.entity';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   constructor(
     @InjectRepository(User) private repo: Repository<User>,
     @InjectRepository(RefreshToken)
@@ -26,6 +27,25 @@ export class AuthService {
     private resetRepo: Repository<PasswordResetToken>,
     private jwt: JwtService,
   ) {}
+
+  async onModuleInit() {
+    const exists = await this.repo.findOne({
+      where: { username: 'superadmin' },
+    });
+    if (exists) return;
+    const hashed = await bcrypt.hash('SuperAdmin123!', 10);
+    const user = this.repo.create({
+      nationalCode: '0000000000',
+      name: 'Super',
+      family: 'Admin',
+      username: 'superadmin',
+      password: hashed,
+      phoneNumber: '09123456789',
+      role: 'super_admin',
+      isActive: true,
+    } as any);
+    await this.repo.save(user as any);
+  }
 
   private sign(user: User) {
     return this.jwt.sign({
@@ -81,7 +101,11 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.repo.findOne({ where: { username: dto.username } });
+    const user = await this.repo
+      .createQueryBuilder('user')
+      .where('user.username = :username', { username: dto.username })
+      .addSelect('user.password')
+      .getOne();
     if (!user) throw new UnauthorizedException('invalid credentials');
     const ok = await bcrypt.compare(dto.password, user.password);
     if (!ok) throw new UnauthorizedException('invalid credentials');

@@ -17,7 +17,7 @@ export class User {
   @Column() name!: string;
   @Column() family!: string;
   @Column({ unique: true }) username!: string;
-  @Column() password!: string;
+  @Column({ select: false }) password!: string;
   @Column() phoneNumber!: string;
   @Column({ unique: true, nullable: true }) email?: string;
   @Column({ nullable: true }) profileImage?: string;
