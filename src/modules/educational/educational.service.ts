@@ -49,7 +49,10 @@ export class EducationalService {
     if (!file) return;
     if (file.size > MAX_FILE_SIZE)
       throw new BadRequestException('video too large (max 100MB)');
-    if (!ALLOWED_VIDEO_MIMES.has(file.mimetype) && !file.mimetype.startsWith('video/'))
+    if (
+      !ALLOWED_VIDEO_MIMES.has(file.mimetype) &&
+      !file.mimetype.startsWith('video/')
+    )
       throw new BadRequestException(`unsupported video type ${file.mimetype}`);
     const ext = path.extname(file.originalname).toLowerCase();
     if (['.exe', '.sh', '.js', '.html'].includes(ext))
@@ -82,7 +85,9 @@ export class EducationalService {
     actor: any,
     file?: Express.Multer.File,
   ) {
-    const barber = await this.barberRepo.findOne({ where: { id: dto.barberId } });
+    const barber = await this.barberRepo.findOne({
+      where: { id: dto.barberId },
+    });
     if (!barber) throw new NotFoundException('Barber not found');
     await this.assertBarberOwnership(dto.barberId, actor);
     this.validateFile(file);
@@ -135,7 +140,7 @@ export class EducationalService {
     const oldFilename = existing.videoFilename;
     const video = this.buildVideoFields(file);
     if (file && oldFilename) this.removeFile(oldFilename);
-    await this.repo.update(id, { ...dto, ...video } as any);
+    await this.repo.update(id, { ...dto, ...video });
     return this.findOne(id);
   }
 
@@ -154,7 +159,7 @@ export class EducationalService {
     await this.assertBarberOwnership(existing.barberId, actor);
     this.removeFile(existing.videoFilename);
     const video = this.buildVideoFields(file);
-    await this.repo.update(id, video as any);
+    await this.repo.update(id, video);
     return this.findOne(id);
   }
 }

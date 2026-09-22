@@ -30,9 +30,11 @@ import { LocationsService } from './locations.service';
 export class LocationsController {
   constructor(private readonly service: LocationsService) {}
 
-  @Roles(Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN)
+  @Roles(Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN, Role.USER)
   @Post()
-  @ApiOperation({ summary: 'Create barber shop location (Barber/Admin)' })
+  @ApiOperation({
+    summary: 'Create location (barberId or userId, exactly one)',
+  })
   create(@Body() dto: CreateLocationDto, @CurrentUser() user: any) {
     return this.service.create(dto, user);
   }
@@ -41,16 +43,34 @@ export class LocationsController {
   @Get()
   @ApiOperation({ summary: 'List locations (public)' })
   @ApiQuery({ name: 'barberId', required: false })
-  findAll(@Query('barberId') barberId?: string) {
-    return this.service.findAll(barberId);
+  @ApiQuery({ name: 'userId', required: false })
+  findAll(
+    @Query('barberId') barberId?: string,
+    @Query('userId') userId?: string,
+  ) {
+    return this.service.findAll(barberId, userId);
+  }
+
+  @Roles(Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN, Role.USER)
+  @Get('mine')
+  @ApiOperation({ summary: 'List own locations' })
+  findMine(@CurrentUser() user: any) {
+    return this.service.findMine(user);
   }
 
   @Public()
   @Get('barber/:barberId')
-  @ApiOperation({ summary: 'Get barber shop location for map display (public)' })
+  @ApiOperation({ summary: 'Get barber location for map (public)' })
   @ApiParam({ name: 'barberId' })
   findByBarberId(@Param('barberId') barberId: string) {
     return this.service.findByBarberId(barberId);
+  }
+
+  @Get('user/:userId')
+  @ApiOperation({ summary: 'List user locations' })
+  @ApiParam({ name: 'userId' })
+  findByUserId(@Param('userId') userId: string) {
+    return this.service.findByUserId(userId);
   }
 
   @Public()
@@ -61,7 +81,7 @@ export class LocationsController {
     return this.service.findOne(id);
   }
 
-  @Roles(Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN)
+  @Roles(Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN, Role.USER)
   @Patch(':id')
   @ApiOperation({ summary: 'Update location (owner/Admin)' })
   @ApiParam({ name: 'id' })
@@ -73,7 +93,7 @@ export class LocationsController {
     return this.service.update(id, dto, user);
   }
 
-  @Roles(Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN)
+  @Roles(Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN, Role.USER)
   @Delete(':id')
   @ApiOperation({ summary: 'Delete location (owner/Admin)' })
   @ApiParam({ name: 'id' })

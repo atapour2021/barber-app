@@ -37,7 +37,9 @@ export class CertificatesService {
   }
 
   async create(dto: CreateCertificateDto, actor: any) {
-    const barber = await this.barberRepo.findOne({ where: { id: dto.barberId } });
+    const barber = await this.barberRepo.findOne({
+      where: { id: dto.barberId },
+    });
     if (!barber) throw new NotFoundException('Barber not found');
     await this.assertBarberOwnership(dto.barberId, actor);
     this.validateDates(dto.issueDate, dto.expiryDate);
@@ -61,7 +63,10 @@ export class CertificatesService {
   }
 
   async findOne(id: string) {
-    const e = await this.repo.findOne({ where: { id }, relations: { barber: true } });
+    const e = await this.repo.findOne({
+      where: { id },
+      relations: { barber: true },
+    });
     if (!e) throw new NotFoundException('Certificate not found');
     return e;
   }
@@ -71,17 +76,27 @@ export class CertificatesService {
     await this.assertBarberOwnership(existing.barberId, actor);
     const targetBarberId = (dto as any).barberId;
     if (targetBarberId && targetBarberId !== existing.barberId) {
-      const nb = await this.barberRepo.findOne({ where: { id: targetBarberId } });
+      const nb = await this.barberRepo.findOne({
+        where: { id: targetBarberId },
+      });
       if (!nb) throw new NotFoundException('Barber not found');
       await this.assertBarberOwnership(targetBarberId, actor);
     }
-    const issueDate = (dto as any).issueDate || existing.issueDate.toISOString().slice(0, 10);
-    const expiryDate = (dto as any).expiryDate !== undefined ? (dto as any).expiryDate : existing.expiryDate?.toISOString().slice(0, 10);
-    if ((dto as any).issueDate || (dto as any).expiryDate) this.validateDates(issueDate, expiryDate);
+    const issueDate =
+      (dto as any).issueDate || existing.issueDate.toISOString().slice(0, 10);
+    const expiryDate =
+      (dto as any).expiryDate !== undefined
+        ? (dto as any).expiryDate
+        : existing.expiryDate?.toISOString().slice(0, 10);
+    if ((dto as any).issueDate || (dto as any).expiryDate)
+      this.validateDates(issueDate, expiryDate);
     const patch: any = { ...dto };
-    if ((dto as any).issueDate) patch.issueDate = new Date((dto as any).issueDate);
+    if ((dto as any).issueDate)
+      patch.issueDate = new Date((dto as any).issueDate);
     if ((dto as any).expiryDate !== undefined)
-      patch.expiryDate = (dto as any).expiryDate ? new Date((dto as any).expiryDate) : null;
+      patch.expiryDate = (dto as any).expiryDate
+        ? new Date((dto as any).expiryDate)
+        : null;
     if (Object.keys(patch).length) await this.repo.update(id, patch);
     return this.findOne(id);
   }

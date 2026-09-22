@@ -60,7 +60,7 @@ export class NotificationsGateway
   private extractToken(client: Socket): string | null {
     const auth = (client.handshake.auth as any)?.token;
     if (auth) return String(auth).replace(/^Bearer\s+/i, '');
-    const header = client.handshake.headers.authorization as string | undefined;
+    const header = client.handshake.headers.authorization;
     if (header) return header.replace(/^Bearer\s+/i, '');
     const query = (client.handshake.query as any)?.token;
     if (query) return String(query).replace(/^Bearer\s+/i, '');

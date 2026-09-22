@@ -35,6 +35,10 @@ import { NOTIFICATION_CHANNELS } from './notifications.constants';
     NotificationsListener,
     NotificationsScheduler,
   ],
-  exports: [NotificationsService, NotificationDispatcher, NOTIFICATION_CHANNELS],
+  exports: [
+    NotificationsService,
+    NotificationDispatcher,
+    NOTIFICATION_CHANNELS,
+  ],
 })
 export class NotificationsModule {}

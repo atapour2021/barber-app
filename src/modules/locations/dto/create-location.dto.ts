@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNumber, IsObject, IsOptional, IsString, IsUUID, Max, Min, Length } from 'class-validator';
+import {
+  IsNumber,
+  IsObject,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Max,
+  Min,
+  Length,
+} from 'class-validator';
 
 export class CreateLocationDto {
   @ApiProperty({ example: '123 Main St, City' })
@@ -24,7 +33,16 @@ export class CreateLocationDto {
   @IsObject()
   mapMetadata?: Record<string, any>;
 
-  @ApiProperty({ example: 'uuid' })
+  @ApiPropertyOptional({
+    example: 'uuid',
+    description: 'Barber location owner',
+  })
+  @IsOptional()
   @IsUUID()
-  barberId!: string;
+  barberId?: string;
+
+  @ApiPropertyOptional({ example: 'uuid', description: 'User location owner' })
+  @IsOptional()
+  @IsUUID()
+  userId?: string;
 }

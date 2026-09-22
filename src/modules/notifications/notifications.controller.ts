@@ -8,11 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { CurrentUser } from '../../common/decorators';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -47,10 +43,7 @@ export class NotificationsController {
 
   @Patch(':id/read')
   @ApiOperation({ summary: 'Mark one as read' })
-  markRead(
-    @CurrentUser() user: any,
-    @Param('id', ParseUUIDPipe) id: string,
-  ) {
+  markRead(@CurrentUser() user: any, @Param('id', ParseUUIDPipe) id: string) {
     return this.service.markRead(user.id, id);
   }
 

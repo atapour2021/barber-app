@@ -20,7 +20,8 @@ function fmtTime(d: Date | string): string {
 export class NotificationsService {
   constructor(
     @InjectRepository(Notification) private repo: Repository<Notification>,
-    @InjectRepository(Appointment) private appointmentRepo: Repository<Appointment>,
+    @InjectRepository(Appointment)
+    private appointmentRepo: Repository<Appointment>,
     @InjectRepository(Barber) private barberRepo: Repository<Barber>,
     private dispatcher: NotificationDispatcher,
   ) {}
@@ -131,10 +132,8 @@ export class NotificationsService {
       where: {
         appointmentId: appointment.id,
         type: NotificationType.APPOINTMENT_REMINDER,
-        createdAt: MoreThan(
-          new Date(Date.now() - 22 * 60 * 60 * 1000) as any,
-        ),
-      } as any,
+        createdAt: MoreThan(new Date(Date.now() - 22 * 60 * 60 * 1000) as any),
+      },
       order: { createdAt: 'DESC' } as any,
     });
     if (exists) return;
@@ -164,10 +163,7 @@ export class NotificationsService {
     const now = new Date();
     const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const due = await r.find({
-      where: [
-        { status: 'pending' as any },
-        { status: 'confirmed' as any },
-      ] as any,
+      where: [{ status: 'pending' }, { status: 'confirmed' }],
     });
     const inWindow = due.filter((a) => {
       const s = new Date(a.startTime).getTime();
@@ -206,7 +202,7 @@ export class NotificationsService {
     if (!n) throw new NotFoundException('Notification not found');
     if (!n.isRead) {
       n.isRead = true;
-      n.readAt = new Date() as any;
+      n.readAt = new Date();
       await this.repo.save(n as any);
     }
     return n;
@@ -214,8 +210,11 @@ export class NotificationsService {
 
   async markAllRead(userId: string): Promise<{ updated: number }> {
     const res = await this.repo.update(
-      { userId, isRead: false } as any,
-      { isRead: true, readAt: new Date() as any },
+      { userId, isRead: false },
+      {
+        isRead: true,
+        readAt: new Date(),
+      },
     );
     return { updated: res.affected ?? 0 };
   }

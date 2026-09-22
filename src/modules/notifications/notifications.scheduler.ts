@@ -10,7 +10,8 @@ export class NotificationsScheduler {
   private timer?: ReturnType<typeof setInterval>;
 
   constructor(
-    @InjectRepository(Appointment) private appointmentRepo: Repository<Appointment>,
+    @InjectRepository(Appointment)
+    private appointmentRepo: Repository<Appointment>,
     private readonly notifications: NotificationsService,
   ) {}
 
@@ -27,7 +28,7 @@ export class NotificationsScheduler {
   private async tick() {
     try {
       const count = await this.notifications.sendDueReminders(
-        this.appointmentRepo as any,
+        this.appointmentRepo,
       );
       if (count) this.logger.log(`sent ${count} reminder(s)`);
     } catch (e) {

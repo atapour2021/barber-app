@@ -54,8 +54,20 @@ const storage = diskStorage({
     cb(null, dir);
   },
   filename: (_req, file, cb) => {
-    const safeExt = extname(file.originalname).toLowerCase().replace(/[^a-z0-9.]/g, '');
-    const allowedExt = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.mpeg', '.mpg', '.3gp'];
+    const safeExt = extname(file.originalname)
+      .toLowerCase()
+      .replace(/[^a-z0-9.]/g, '');
+    const allowedExt = [
+      '.mp4',
+      '.webm',
+      '.ogg',
+      '.mov',
+      '.avi',
+      '.mkv',
+      '.mpeg',
+      '.mpg',
+      '.3gp',
+    ];
     const ext = allowedExt.includes(safeExt) ? safeExt : '.mp4';
     cb(null, `${Date.now()}-${randomUUID()}${ext}`);
   },
@@ -64,7 +76,8 @@ const storage = diskStorage({
 function fileFilter(_req: any, file: Express.Multer.File, cb: any) {
   const ok =
     ALLOWED_MIMES.includes(file.mimetype) || file.mimetype.startsWith('video/');
-  if (!ok) return cb(new Error(`unsupported video type ${file.mimetype}`), false);
+  if (!ok)
+    return cb(new Error(`unsupported video type ${file.mimetype}`), false);
   const ext = extname(file.originalname).toLowerCase();
   if (['.exe', '.sh', '.js', '.html', '.php'].includes(ext))
     return cb(new Error('invalid file extension'), false);
@@ -80,7 +93,9 @@ export class EducationalController {
 
   @Roles(Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post()
-  @ApiOperation({ summary: 'Create educational (Barber/Admin) with optional video' })
+  @ApiOperation({
+    summary: 'Create educational (Barber/Admin) with optional video',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
