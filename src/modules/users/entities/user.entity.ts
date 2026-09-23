@@ -23,6 +23,8 @@ export class User {
   @Column({ nullable: true }) profileImage?: string;
   @Column({ type: 'text', default: 'USER' }) role!: string;
   @Column({ default: true }) isActive!: boolean;
+  @Column({ type: 'text', default: 'light' }) themePreference!: string;
+  @Column({ default: true }) smsReminder!: boolean;
   @CreateDateColumn({ name: 'createdAt' }) createdAt!: Date;
   @UpdateDateColumn({ name: 'updatedAt' }) updatedAt!: Date;
   @OneToMany(() => Barbershop, (shop) => shop.owner, { cascade: true })

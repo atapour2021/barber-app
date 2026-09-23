@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -9,9 +9,10 @@ import {
 } from '@nestjs/swagger';
 import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
-import { Roles } from '../../common/decorators';
+import { CurrentUser, Roles } from '../../common/decorators';
 import { Role } from '../../enums/role';
 import { RegisterDto } from '../auth/dto/register.dto';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { UsersService } from './users.service';
 
 @ApiTags('users')
@@ -36,6 +37,21 @@ export class UsersController {
   @ApiResponse({ status: 200, description: 'List all users' })
   findAll() {
     return this.usersService.findAll();
+  }
+
+  @Get('me/preferences')
+  @ApiOperation({ summary: 'Get my preferences' })
+  @ApiResponse({ status: 200, description: 'Preferences' })
+  getPreferences(@CurrentUser() user: any) {
+    return this.usersService.getPreferences(user.id ?? user.sub);
+  }
+
+  @Patch('me/preferences')
+  @ApiOperation({ summary: 'Update my preferences' })
+  @ApiResponse({ status: 200, description: 'Preferences updated' })
+  @ApiBody({ type: UpdatePreferencesDto })
+  updatePreferences(@CurrentUser() user: any, @Body() dto: UpdatePreferencesDto) {
+    return this.usersService.updatePreferences(user.id ?? user.sub, dto);
   }
 
   @Roles(Role.ADMIN, Role.SUPER_ADMIN)
