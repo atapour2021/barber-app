@@ -119,9 +119,9 @@ export class AppointmentsController {
     return this.service.updateStatus(id, dto.status, user);
   }
 
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @Roles(Role.CUSTOMER, Role.USER, Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN)
   @Delete(':id')
-  @ApiOperation({ summary: 'Delete appointment (Admin only)' })
+  @ApiOperation({ summary: 'Delete appointment (Owner or Admin)' })
   @ApiParam({ name: 'id' })
   remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: any) {
     return this.service.remove(id, user);

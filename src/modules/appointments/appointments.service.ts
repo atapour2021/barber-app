@@ -468,6 +468,11 @@ export class AppointmentsService {
 
   async update(id: string, dto: UpdateAppointmentDto, actor: any) {
     const e = await this.findOne(id, actor);
+    const role = String(actor?.role || '').toLowerCase();
+    const isAdmin = role === 'admin' || role === 'super_admin';
+    const isOwner = String(e.userId) === String(actor?.id);
+    if (!isAdmin && !isOwner)
+      throw new ForbiddenException('Only owner or admin can edit');
     const patch: any = {};
     if (dto.notes !== undefined) patch.notes = dto.notes;
     if (Object.keys(patch).length) await this.repo.update(id, patch);
@@ -478,10 +483,16 @@ export class AppointmentsService {
   }
 
   async remove(id: string, actor: any) {
+    const e = await this.repo.findOne({
+      where: { id },
+      relations: { user: true, barber: true, service: true },
+    });
+    if (!e) throw new NotFoundException('Appointment not found');
     const role = String(actor?.role || '').toLowerCase();
     const isAdmin = role === 'admin' || role === 'super_admin';
-    if (!isAdmin) throw new ForbiddenException('Admin only');
-    await this.findOne(id, actor);
+    const isOwner = String(e.userId) === String(actor?.id);
+    if (!isAdmin && !isOwner)
+      throw new ForbiddenException('Only owner or admin can delete');
     await this.repo.delete(id);
     return { deleted: true };
   }
