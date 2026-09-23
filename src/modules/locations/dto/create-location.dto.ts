@@ -16,6 +16,12 @@ export class CreateLocationDto {
   @Length(1, 500)
   address!: string;
 
+  @ApiPropertyOptional({ example: 'خانه' })
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  label?: string;
+
   @ApiProperty({ example: 10.762622 })
   @IsNumber()
   @Min(-90)

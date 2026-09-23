@@ -69,6 +69,7 @@ export class LocationsService {
       return this.repo.save(
         this.repo.create({
           address: dto.address,
+          label: dto.label,
           latitude: dto.latitude,
           longitude: dto.longitude,
           mapMetadata: dto.mapMetadata,
@@ -85,6 +86,7 @@ export class LocationsService {
     return this.repo.save(
       this.repo.create({
         address: dto.address,
+        label: dto.label,
         latitude: dto.latitude,
         longitude: dto.longitude,
         mapMetadata: dto.mapMetadata,
@@ -152,7 +154,8 @@ export class LocationsService {
     const existing = await this.findOne(id);
     await this.assertLocationOwnership(existing, actor);
     if (!Object.keys(dto).length) return existing;
-    await this.repo.update(id, dto as any);
+    const { barberId, userId, ...rest } = dto as any;
+    await this.repo.update(id, rest as any);
     return this.findOne(id);
   }
 

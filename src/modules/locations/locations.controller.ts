@@ -58,6 +58,13 @@ export class LocationsController {
     return this.service.findMine(user);
   }
 
+  @Roles(Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN, Role.USER)
+  @Get('me')
+  @ApiOperation({ summary: 'List own locations (alias for mine)' })
+  findMe(@CurrentUser() user: any) {
+    return this.service.findMine(user);
+  }
+
   @Public()
   @Get('barber/:barberId')
   @ApiOperation({ summary: 'Get barber location for map (public)' })

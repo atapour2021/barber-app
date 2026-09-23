@@ -14,6 +14,7 @@ import { User } from '../../users/entities/user.entity';
 export class Location {
   @PrimaryGeneratedColumn('uuid') id!: string;
   @Column() address!: string;
+  @Column({ nullable: true }) label?: string;
   @Column({ type: 'decimal', precision: 10, scale: 8 }) latitude!: number;
   @Column({ type: 'decimal', precision: 11, scale: 8 }) longitude!: number;
   @Column({ type: 'simple-json', nullable: true }) mapMetadata?: Record<
