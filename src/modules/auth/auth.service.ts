@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
   OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -211,5 +212,20 @@ export class AuthService implements OnModuleInit {
     await this.resetRepo.save(stored);
     await this.logoutAll(user.id);
     return { message: 'password reset successfully' };
+  }
+
+  async changePassword(
+    userId: string,
+    newPassword: string,
+    confirmPassword: string,
+  ) {
+    if (newPassword !== confirmPassword)
+      throw new BadRequestException('passwords do not match');
+    const user = await this.repo.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException('user not found');
+    user.password = await bcrypt.hash(newPassword, 10);
+    await this.repo.save(user);
+    await this.logoutAll(user.id);
+    return { message: 'password changed successfully' };
   }
 }
