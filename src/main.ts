@@ -13,7 +13,12 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
-  app.enableCors();
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN?.split(',') ?? true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type, Authorization, X-Requested-With',
+    credentials: true,
+  });
   const config = new DocumentBuilder()
     .setTitle('Barber App API')
     .setDescription('API documentation for the Barber App')
@@ -22,6 +27,6 @@ async function bootstrap() {
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, document, { customSiteTitle: 'Barber API' });
-  await app.listen(process.env.PORT ?? 3000, '0.0.0.0');
+  await app.listen(process.env.PORT ?? 3000);
 }
 void bootstrap();
