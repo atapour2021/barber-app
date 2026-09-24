@@ -50,9 +50,6 @@ export class Notification {
   updatedAt: Date;
 
   constructor() {
-    this.id = '';
-    this.userId = '';
-    this.user = new User();
     this.type = NotificationType.BOOKING_CREATED;
     this.title = '';
     this.body = '';
@@ -60,7 +57,5 @@ export class Notification {
     this.appointmentId = null;
     this.isRead = false;
     this.readAt = null;
-    this.createdAt = new Date();
-    this.updatedAt = new Date();
   }
 }

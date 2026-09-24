@@ -66,19 +66,6 @@ export class Appointment {
   updatedAt: Date;
 
   constructor() {
-    this.id = '';
-    this.date = new Date();
-    this.startTime = new Date();
-    this.endTime = new Date();
     this.status = AppointmentStatus.PENDING;
-    this.userId = '';
-    this.barberId = '';
-    this.serviceId = '';
-    this.user = new User();
-    this.barber = new Barber();
-    this.service = new Service();
-    this.createdAt = new Date();
-    this.updatedAt = new Date();
-    this.notes = undefined;
   }
 }

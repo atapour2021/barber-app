@@ -1,4 +1,8 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -32,20 +36,29 @@ export class UsersService {
       if (dup) throw new ConflictException('email already taken');
     }
     const allowed: Record<string, unknown> = {};
-    for (const k of ['name', 'family', 'phoneNumber', 'email', 'profileImage'] as const) {
+    for (const k of [
+      'name',
+      'family',
+      'phoneNumber',
+      'email',
+      'profileImage',
+    ] as const) {
       if ((dto as any)[k] !== undefined) allowed[k] = (dto as any)[k];
     }
-    if (Object.keys(allowed).length) await this.repo.update(userId, allowed as any);
+    if (Object.keys(allowed).length) await this.repo.update(userId, allowed);
     return this.getMe(userId);
   }
   async getPreferences(userId: string) {
     const u = await this.findOne(userId);
-    return { themePreference: (u as any).themePreference ?? 'light', smsReminder: (u as any).smsReminder ?? true };
+    return {
+      themePreference: (u as any).themePreference ?? 'light',
+      smsReminder: (u as any).smsReminder ?? true,
+    };
   }
   async updatePreferences(userId: string, dto: UpdatePreferencesDto) {
     await this.findOne(userId);
     if (dto.themePreference !== undefined || dto.smsReminder !== undefined) {
-      await this.repo.update(userId, dto as any);
+      await this.repo.update(userId, dto);
     }
     return this.getPreferences(userId);
   }

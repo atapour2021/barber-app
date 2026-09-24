@@ -158,7 +158,7 @@ export class LocationsService {
     await this.assertLocationOwnership(existing, actor);
     if (!Object.keys(dto).length) return existing;
     const { barberId, userId, ...rest } = dto as any;
-    await this.repo.update(id, rest as any);
+    await this.repo.update(id, rest);
     return this.findOne(id);
   }
 

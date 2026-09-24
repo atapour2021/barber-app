@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Patch, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -45,7 +54,12 @@ export class UsersController {
   @Post('me/avatar')
   @ApiOperation({ summary: 'Upload my avatar' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -54,10 +68,15 @@ export class UsersController {
           fs.mkdirSync(dir, { recursive: true });
           cb(null, dir);
         },
-        filename: (_req, f, cb) => cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(f.originalname)}`),
+        filename: (_req, f, cb) =>
+          cb(
+            null,
+            `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(f.originalname)}`,
+          ),
       }),
       fileFilter: (_req, f, cb) => {
-        if (!f.mimetype.startsWith('image/')) return cb(new Error('only images allowed') as any, false);
+        if (!f.mimetype.startsWith('image/'))
+          return cb(new Error('only images allowed'), false);
         cb(null, true);
       },
       limits: { fileSize: 5 * 1024 * 1024 },
@@ -65,7 +84,9 @@ export class UsersController {
   )
   async uploadAvatar(@CurrentUser() user: any, @UploadedFile() file: any) {
     const url = `/uploads/avatars/${file.filename}`;
-    await this.usersService.updateMe(user.id ?? user.sub, { profileImage: url } as any);
+    await this.usersService.updateMe(user.id ?? user.sub, {
+      profileImage: url,
+    });
     return this.usersService.getMe(user.id ?? user.sub);
   }
 
@@ -97,7 +118,10 @@ export class UsersController {
   @ApiOperation({ summary: 'Update my preferences' })
   @ApiResponse({ status: 200, description: 'Preferences updated' })
   @ApiBody({ type: UpdatePreferencesDto })
-  updatePreferences(@CurrentUser() user: any, @Body() dto: UpdatePreferencesDto) {
+  updatePreferences(
+    @CurrentUser() user: any,
+    @Body() dto: UpdatePreferencesDto,
+  ) {
     return this.usersService.updatePreferences(user.id ?? user.sub, dto);
   }
 

@@ -22,7 +22,10 @@ import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
-    ServeStaticModule.forRoot({ rootPath: join(process.cwd(), 'uploads'), serveRoot: '/uploads' }),
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
+    }),
     EventEmitterModule.forRoot({ global: true }),
     UsersModule,
     BarbershopsModule,

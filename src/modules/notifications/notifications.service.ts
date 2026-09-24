@@ -34,6 +34,10 @@ export class NotificationsService {
     appointmentId?: string | null,
     data?: Record<string, any> | null,
   ): Promise<Notification> {
+    if (!userId) {
+      this.dispatcher['logger']?.warn?.(`skip notification ${type}: empty userId`);
+      return null as any;
+    }
     const entity = this.repo.create({
       userId,
       type,
@@ -123,6 +127,8 @@ export class NotificationsService {
   }
 
   async notifyAppointmentReminder(appointment: Appointment): Promise<void> {
+    if (!appointment?.userId || !String(appointment.userId).trim()) return;
+    if (!appointment?.id) return;
     const date = fmtDate(appointment.startTime ?? appointment.date);
     const time = fmtTime(appointment.startTime);
     const barber = await this.barberRepo.findOne({
@@ -166,13 +172,20 @@ export class NotificationsService {
       where: [{ status: 'pending' }, { status: 'confirmed' }],
     });
     const inWindow = due.filter((a) => {
+      if (!a?.userId || !String(a.userId).trim()) return false;
+      if (!a?.startTime) return false;
       const s = new Date(a.startTime).getTime();
+      if (Number.isNaN(s)) return false;
       return s > now.getTime() && s <= in24h.getTime();
     });
     let count = 0;
     for (const a of inWindow) {
-      await this.notifyAppointmentReminder(a);
-      count++;
+      try {
+        await this.notifyAppointmentReminder(a);
+        count++;
+      } catch (e) {
+        continue;
+      }
     }
     return count;
   }

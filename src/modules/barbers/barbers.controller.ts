@@ -79,7 +79,12 @@ export class BarbersController {
   @Post('me/avatar')
   @ApiOperation({ summary: 'Upload my barber avatar' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -88,10 +93,15 @@ export class BarbersController {
           fs.mkdirSync(dir, { recursive: true });
           cb(null, dir);
         },
-        filename: (_req, f, cb) => cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(f.originalname)}`),
+        filename: (_req, f, cb) =>
+          cb(
+            null,
+            `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(f.originalname)}`,
+          ),
       }),
       fileFilter: (_req, f, cb) => {
-        if (!f.mimetype.startsWith('image/')) return cb(new Error('only images allowed') as any, false);
+        if (!f.mimetype.startsWith('image/'))
+          return cb(new Error('only images allowed'), false);
         cb(null, true);
       },
       limits: { fileSize: 5 * 1024 * 1024 },
@@ -100,13 +110,18 @@ export class BarbersController {
   async uploadMyAvatar(@CurrentUser() user: any, @UploadedFile() file: any) {
     const url = `/uploads/avatars/${file.filename}`;
     const me = await this.barbersService.findMyBarber(user.id ?? user.sub);
-    return this.barbersService.update(me.id, { profileImage: url } as any, user);
+    return this.barbersService.update(me.id, { profileImage: url }, user);
   }
 
   @Post(':id/avatar')
   @ApiOperation({ summary: 'Upload barber avatar by id (owner/Admin)' })
   @ApiConsumes('multipart/form-data')
-  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -115,18 +130,27 @@ export class BarbersController {
           fs.mkdirSync(dir, { recursive: true });
           cb(null, dir);
         },
-        filename: (_req, f, cb) => cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(f.originalname)}`),
+        filename: (_req, f, cb) =>
+          cb(
+            null,
+            `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(f.originalname)}`,
+          ),
       }),
       fileFilter: (_req, f, cb) => {
-        if (!f.mimetype.startsWith('image/')) return cb(new Error('only images allowed') as any, false);
+        if (!f.mimetype.startsWith('image/'))
+          return cb(new Error('only images allowed'), false);
         cb(null, true);
       },
       limits: { fileSize: 5 * 1024 * 1024 },
     }),
   )
-  async uploadAvatar(@Param('id') id: string, @CurrentUser() user: any, @UploadedFile() file: any) {
+  async uploadAvatar(
+    @Param('id') id: string,
+    @CurrentUser() user: any,
+    @UploadedFile() file: any,
+  ) {
     const url = `/uploads/avatars/${file.filename}`;
-    return this.barbersService.update(id, { profileImage: url } as any, user);
+    return this.barbersService.update(id, { profileImage: url }, user);
   }
 
   @Public()

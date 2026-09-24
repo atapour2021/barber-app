@@ -85,6 +85,10 @@ export class AuthController {
   @ApiOperation({ summary: 'Change password (authenticated)' })
   @ApiBody({ type: ChangePasswordDto })
   changePassword(@CurrentUser() user: any, @Body() dto: ChangePasswordDto) {
-    return this.authService.changePassword(user.id ?? user.sub, dto.newPassword, dto.confirmPassword);
+    return this.authService.changePassword(
+      user.id ?? user.sub,
+      dto.newPassword,
+      dto.confirmPassword,
+    );
   }
 }
