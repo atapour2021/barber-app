@@ -227,6 +227,11 @@ export class BarbersService {
     return e;
   }
 
+  async updateMyBarber(userId: string, dto: UpdateBarberDto, actor: any) {
+    const me = await this.findMyBarber(userId);
+    return this.update(me.id, dto, actor);
+  }
+
   async update(id: string, dto: UpdateBarberDto, actor: any) {
     const barber = await this.findOne(id);
     const role = String(actor?.role || '').toLowerCase();

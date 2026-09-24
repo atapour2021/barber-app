@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
 import { databaseConfig } from './config/database.config';
 import {
   AppointmentsModule,
@@ -20,6 +22,7 @@ import { AdminModule } from './modules/admin/admin.module';
 
 @Module({
   imports: [
+    ServeStaticModule.forRoot({ rootPath: join(process.cwd(), 'uploads'), serveRoot: '/uploads' }),
     EventEmitterModule.forRoot({ global: true }),
     UsersModule,
     BarbershopsModule,

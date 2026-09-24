@@ -7,6 +7,8 @@ import {
   Patch,
   Delete,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,8 +17,14 @@ import {
   ApiParam,
   ApiQuery,
   ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { UseGuards } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import * as path from 'path';
+import * as fs from 'fs';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { Roles, Public, CurrentUser } from '../../common/decorators';
 import { Role } from '../../enums/role';
@@ -57,7 +65,68 @@ export class BarbersController {
   @Get('me')
   @ApiOperation({ summary: 'Get my barber profile' })
   me(@CurrentUser() user: any) {
-    return this.barbersService.findMyBarber(user.id);
+    return this.barbersService.findMyBarber(user.id ?? user.sub);
+  }
+
+  @Roles(Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN)
+  @Patch('me')
+  @ApiOperation({ summary: 'Update my barber profile' })
+  updateMe(@Body() dto: UpdateBarberDto, @CurrentUser() user: any) {
+    return this.barbersService.updateMyBarber(user.id ?? user.sub, dto, user);
+  }
+
+  @Roles(Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN)
+  @Post('me/avatar')
+  @ApiOperation({ summary: 'Upload my barber avatar' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (_req, _f, cb) => {
+          const dir = './uploads/avatars';
+          fs.mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (_req, f, cb) => cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(f.originalname)}`),
+      }),
+      fileFilter: (_req, f, cb) => {
+        if (!f.mimetype.startsWith('image/')) return cb(new Error('only images allowed') as any, false);
+        cb(null, true);
+      },
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  async uploadMyAvatar(@CurrentUser() user: any, @UploadedFile() file: any) {
+    const url = `/uploads/avatars/${file.filename}`;
+    const me = await this.barbersService.findMyBarber(user.id ?? user.sub);
+    return this.barbersService.update(me.id, { profileImage: url } as any, user);
+  }
+
+  @Post(':id/avatar')
+  @ApiOperation({ summary: 'Upload barber avatar by id (owner/Admin)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ schema: { type: 'object', properties: { file: { type: 'string', format: 'binary' } } } })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: (_req, _f, cb) => {
+          const dir = './uploads/avatars';
+          fs.mkdirSync(dir, { recursive: true });
+          cb(null, dir);
+        },
+        filename: (_req, f, cb) => cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(f.originalname)}`),
+      }),
+      fileFilter: (_req, f, cb) => {
+        if (!f.mimetype.startsWith('image/')) return cb(new Error('only images allowed') as any, false);
+        cb(null, true);
+      },
+      limits: { fileSize: 5 * 1024 * 1024 },
+    }),
+  )
+  async uploadAvatar(@Param('id') id: string, @CurrentUser() user: any, @UploadedFile() file: any) {
+    const url = `/uploads/avatars/${file.filename}`;
+    return this.barbersService.update(id, { profileImage: url } as any, user);
   }
 
   @Public()
