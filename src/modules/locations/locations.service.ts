@@ -48,10 +48,13 @@ export class LocationsService {
   }
 
   async create(dto: CreateLocationDto, actor: any) {
+    if (!dto.barberId && !dto.userId) {
+      const uid = actor?.id ?? actor?.sub;
+      if (!uid) throw new BadRequestException('barberId or userId required');
+      (dto as any).userId = uid;
+    }
     const hasBarber = !!dto.barberId;
     const hasUser = !!dto.userId;
-    if (!hasBarber && !hasUser)
-      throw new BadRequestException('barberId or userId required');
     if (hasBarber && hasUser)
       throw new BadRequestException('provide only one of barberId or userId');
 
