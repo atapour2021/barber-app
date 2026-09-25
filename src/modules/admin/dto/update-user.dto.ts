@@ -62,3 +62,17 @@ export class CreateSettingDto {
   @IsString()
   description?: string;
 }
+
+export class AdminResetPasswordDto {
+  @ApiPropertyOptional({ example: 'NewPassword123!' })
+  @IsString()
+  @MinLength(6)
+  password!: string;
+}
+
+export class AdminToggleActiveDto {
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+}

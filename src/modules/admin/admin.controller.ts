@@ -28,11 +28,14 @@ import {
   UsersQueryDto,
 } from './dto/pagination.dto';
 import {
+  AdminResetPasswordDto,
+  AdminToggleActiveDto,
   AdminUpdateUserDto,
   AdminUpdateSettingDto,
   CreateSettingDto,
 } from './dto/update-user.dto';
 import { UpdateAppointmentStatusDto } from '../appointments/dto/update-appointment-status.dto';
+import { CurrentUser } from '../../common/decorators';
 
 @ApiTags('admin')
 @ApiBearerAuth()
@@ -71,11 +74,32 @@ export class AdminController {
     return this.admin.updateUser(id, dto);
   }
 
+  @Patch('users/:id/toggle-active')
+  @ApiOperation({ summary: 'Activate/deactivate user (Admin)' })
+  @ApiParam({ name: 'id' })
+  toggleUserActive(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdminToggleActiveDto,
+    @CurrentUser() actor: any,
+  ) {
+    return this.admin.toggleUserActive(id, dto, actor);
+  }
+
+  @Post('users/:id/reset-password')
+  @ApiOperation({ summary: 'Reset user password (Admin)' })
+  @ApiParam({ name: 'id' })
+  resetUserPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdminResetPasswordDto,
+  ) {
+    return this.admin.resetUserPassword(id, dto);
+  }
+
   @Delete('users/:id')
   @ApiOperation({ summary: 'Delete user (Admin)' })
   @ApiParam({ name: 'id' })
-  removeUser(@Param('id', ParseUUIDPipe) id: string) {
-    return this.admin.removeUser(id);
+  removeUser(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: any) {
+    return this.admin.removeUser(id, actor);
   }
 
   @Get('customers')
@@ -109,6 +133,26 @@ export class AdminController {
   @ApiParam({ name: 'id' })
   updateBarber(@Param('id', ParseUUIDPipe) id: string, @Body() dto: any) {
     return this.admin.updateBarber(id, dto);
+  }
+
+  @Patch('barbers/:id/toggle-active')
+  @ApiOperation({ summary: 'Activate/deactivate barber (Admin)' })
+  @ApiParam({ name: 'id' })
+  toggleBarberActive(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdminToggleActiveDto,
+  ) {
+    return this.admin.toggleBarberActive(id, dto);
+  }
+
+  @Post('barbers/:id/reset-password')
+  @ApiOperation({ summary: 'Reset barber password (Admin, via linked user)' })
+  @ApiParam({ name: 'id' })
+  resetBarberPassword(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdminResetPasswordDto,
+  ) {
+    return this.admin.resetBarberPassword(id, dto);
   }
 
   @Delete('barbers/:id')

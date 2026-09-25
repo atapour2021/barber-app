@@ -1,17 +1,22 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, In, Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity';
 import { Barber, BarberStatus } from '../barbers/entities/barber.entity';
 import { Service } from '../services/entities/service.entity';
 import { Appointment } from '../appointments/entities/appointment.entity';
 import { Setting } from './entities/setting.entity';
+import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import {
+  AdminResetPasswordDto,
+  AdminToggleActiveDto,
   AdminUpdateUserDto,
   AdminUpdateSettingDto,
   CreateSettingDto,
@@ -53,6 +58,7 @@ export class AdminService {
     @InjectRepository(Appointment)
     private appointments: Repository<Appointment>,
     @InjectRepository(Setting) private settings: Repository<Setting>,
+    @InjectRepository(RefreshToken) private refreshTokens: Repository<RefreshToken>,
   ) {}
 
   async dashboard() {
@@ -173,11 +179,53 @@ export class AdminService {
     return this.getUser(id);
   }
 
-  async removeUser(id: string) {
+  async removeUser(id: string, actor?: any) {
     const u = await this.users.findOne({ where: { id } });
     if (!u) throw new NotFoundException('User not found');
+    const aid = actor?.id ?? actor?.sub;
+    if (aid && String(aid) === String(id))
+      throw new ForbiddenException('cannot delete own account');
+    const role = String(u.role).toLowerCase();
+    if (role === 'super_admin' && String(actor?.role).toLowerCase() !== 'super_admin')
+      throw new ForbiddenException('only super_admin can delete super_admin');
+    const barber = await this.barbers.findOne({ where: { userId: id } as any });
+    if (barber) await this.barbers.delete(barber.id);
+    await this.refreshTokens
+      .createQueryBuilder()
+      .update(RefreshToken)
+      .set({ revokedAt: new Date() } as any)
+      .where('userId = :uid AND revokedAt IS NULL', { uid: id })
+      .execute();
     await this.users.delete(id);
     return { deleted: true };
+  }
+
+  async toggleUserActive(id: string, dto: AdminToggleActiveDto, actor?: any) {
+    const u = await this.users.findOne({ where: { id } });
+    if (!u) throw new NotFoundException('User not found');
+    const aid = actor?.id ?? actor?.sub;
+    if (aid && String(aid) === String(id) && dto.isActive === false)
+      throw new ForbiddenException('cannot deactivate own account');
+    const val =
+      dto.isActive !== undefined ? dto.isActive : !u.isActive;
+    await this.users.update(id, { isActive: val } as any);
+    const b = await this.barbers.findOne({ where: { userId: id } as any });
+    if (b) await this.barbers.update(b.id, { isActive: val, status: val ? BarberStatus.ACTIVE : BarberStatus.INACTIVE } as any);
+    return this.getUser(id);
+  }
+
+  async resetUserPassword(id: string, dto: AdminResetPasswordDto) {
+    const u = await this.users.findOne({ where: { id } });
+    if (!u) throw new NotFoundException('User not found');
+    const hashed = await bcrypt.hash(dto.password, 10);
+    await this.users.update(id, { password: hashed } as any);
+    await this.refreshTokens
+      .createQueryBuilder()
+      .update(RefreshToken)
+      .set({ revokedAt: new Date() } as any)
+      .where('userId = :uid AND revokedAt IS NULL', { uid: id })
+      .execute();
+    return { message: 'password reset successfully' };
   }
 
   async listCustomers(q: any) {
@@ -277,6 +325,24 @@ export class AdminService {
     await this.getBarber(id);
     await this.barbers.delete(id);
     return { deleted: true };
+  }
+
+  async toggleBarberActive(id: string, dto: AdminToggleActiveDto) {
+    const b = await this.getBarber(id);
+    const val = dto.isActive !== undefined ? dto.isActive : !b.isActive;
+    await this.barbers.update(id, { isActive: val, status: val ? BarberStatus.ACTIVE : BarberStatus.INACTIVE } as any);
+    if ((b as any).userId) {
+      const u = await this.users.findOne({ where: { id: (b as any).userId } });
+      if (u) await this.users.update(u.id, { isActive: val } as any);
+    }
+    return this.getBarber(id);
+  }
+
+  async resetBarberPassword(id: string, dto: AdminResetPasswordDto) {
+    const b = await this.getBarber(id);
+    const uid = (b as any).userId;
+    if (!uid) throw new NotFoundException('Barber has no linked user');
+    return this.resetUserPassword(uid, dto);
   }
 
   async listServices(q: any) {

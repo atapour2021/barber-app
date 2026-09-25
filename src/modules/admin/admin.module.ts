@@ -5,12 +5,13 @@ import { Barber } from '../barbers/entities/barber.entity';
 import { Service } from '../services/entities/service.entity';
 import { Appointment } from '../appointments/entities/appointment.entity';
 import { Setting } from './entities/setting.entity';
+import { RefreshToken } from '../auth/entities/refresh-token.entity';
 import { AdminService } from './admin.service';
 import { AdminController } from './admin.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Barber, Service, Appointment, Setting]),
+    TypeOrmModule.forFeature([User, Barber, Service, Appointment, Setting, RefreshToken]),
   ],
   controllers: [AdminController],
   providers: [AdminService],
