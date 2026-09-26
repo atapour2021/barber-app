@@ -70,8 +70,10 @@ export class AppointmentsController {
     @Query('status') status?: string,
     @Query('barberId') barberId?: string,
     @Query('date') date?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.service.findAll(user, { status, barberId, date });
+    return this.service.findAll(user, { status, barberId, date, page, limit });
   }
 
   @Roles(Role.CUSTOMER, Role.USER, Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN)

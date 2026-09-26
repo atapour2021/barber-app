@@ -57,11 +57,16 @@ export class ServicesService {
     return this.repo.save(this.repo.create({ ...rest, barberId }));
   }
 
-  findAll(barberId?: string, barbershopId?: string) {
+  async findAll(barberId?: string, barbershopId?: string, q?: any) {
     const where: any = {};
     if (barberId) where.barberId = barberId;
     if (barbershopId) where.barbershopId = barbershopId;
-    return this.repo.find({ where, order: { createdAt: 'DESC' } as any });
+    const hasPaging = q?.page !== undefined || q?.limit !== undefined;
+    if (!hasPaging) return this.repo.find({ where, order: { createdAt: 'DESC' } as any });
+    const page = Math.max(1, Number(q.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(q.limit) || 20));
+    const [data, total] = await this.repo.findAndCount({ where, order: { createdAt: 'DESC' } as any, skip: (page - 1) * limit, take: limit });
+    return { data, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
   }
 
   async findOne(id: string) {

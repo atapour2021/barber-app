@@ -43,8 +43,10 @@ export class ServicesController {
   findAll(
     @Query('barberId') barberId?: string,
     @Query('barbershopId') barbershopId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.service.findAll(barberId, barbershopId);
+    return this.service.findAll(barberId, barbershopId, { page, limit });
   }
   @Public()
   @Get(':id')

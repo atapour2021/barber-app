@@ -57,8 +57,10 @@ export class BarbersController {
     @Query('barbershopId') barbershopId?: string,
     @Query('status') status?: string,
     @Query('isActive') isActive?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.barbersService.findAll(barbershopId, { status, isActive });
+    return this.barbersService.findAll(barbershopId, { status, isActive, page, limit });
   }
 
   @Roles(Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN)

@@ -351,30 +351,36 @@ export class AppointmentsService {
     if (query.status) where.status = query.status;
     if (query.barberId) where.barberId = query.barberId;
     if (query.date) where.date = new Date(query.date) as any;
-    if (isAdmin)
-      return this.repo.find({
-        where,
+    const hasPaging = query.page !== undefined || query.limit !== undefined;
+    const doFind = async (w: any) => {
+      if (!hasPaging)
+        return this.repo.find({
+          where: w,
+          relations: { user: true, barber: true, service: true },
+          order: { startTime: 'ASC' } as any,
+        });
+      const page = Math.max(1, Number(query.page) || 1);
+      const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+      const [data, total] = await this.repo.findAndCount({
+        where: w,
         relations: { user: true, barber: true, service: true },
         order: { startTime: 'ASC' } as any,
+        skip: (page - 1) * limit,
+        take: limit,
       });
+      return { data, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
+    };
+    if (isAdmin) return doFind(where);
     if (isBarber) {
       const myBarber = await this.barberRepo.findOne({
         where: { userId: actor.id },
       });
       if (!myBarber) throw new NotFoundException('Barber profile not found');
       where.barberId = myBarber.id;
-      return this.repo.find({
-        where,
-        relations: { user: true, barber: true, service: true },
-        order: { startTime: 'ASC' } as any,
-      });
+      return doFind(where);
     }
     where.userId = actor.id;
-    return this.repo.find({
-      where,
-      relations: { user: true, barber: true, service: true },
-      order: { startTime: 'ASC' } as any,
-    });
+    return doFind(where);
   }
 
   async findOne(id: string, actor: any) {

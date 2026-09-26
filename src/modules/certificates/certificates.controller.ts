@@ -41,8 +41,8 @@ export class CertificatesController {
   @Get()
   @ApiOperation({ summary: 'List certificates (public)' })
   @ApiQuery({ name: 'barberId', required: false })
-  findAll(@Query('barberId') barberId?: string) {
-    return this.service.findAll(barberId);
+  findAll(@Query('barberId') barberId?: string, @Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.service.findAll(barberId, { page, limit });
   }
 
   @Public()

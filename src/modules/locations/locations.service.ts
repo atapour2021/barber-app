@@ -99,28 +99,52 @@ export class LocationsService {
     );
   }
 
-  findAll(barberId?: string, userId?: string) {
+  async findAll(barberId?: string, userId?: string, q?: any) {
     const where: any = {};
     if (barberId) where.barberId = barberId;
     if (userId) where.userId = userId;
-    return this.repo.find({
+    const hasPaging = q?.page !== undefined || q?.limit !== undefined;
+    if (!hasPaging)
+      return this.repo.find({
+        where,
+        relations: { barber: true, user: true },
+        order: { createdAt: 'DESC' } as any,
+      });
+    const page = Math.max(1, Number(q.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(q.limit) || 20));
+    const [data, total] = await this.repo.findAndCount({
       where,
       relations: { barber: true, user: true },
       order: { createdAt: 'DESC' } as any,
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    return { data, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
   }
 
-  async findMine(actor: any) {
-    if (isAdmin(actor?.role)) return this.findAll();
+  async findMine(actor: any, q?: any) {
+    if (isAdmin(actor?.role)) return this.findAll(undefined, undefined, q);
     const barbers = await this.barberRepo.find({ where: { userId: actor.id } });
     const barberIds = barbers.map((b) => b.id);
     const where: any[] = [{ userId: actor.id }];
     for (const bid of barberIds) where.push({ barberId: bid });
-    return this.repo.find({
+    const hasPaging = q?.page !== undefined || q?.limit !== undefined;
+    if (!hasPaging)
+      return this.repo.find({
+        where,
+        relations: { barber: true, user: true },
+        order: { createdAt: 'DESC' } as any,
+      });
+    const page = Math.max(1, Number(q.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(q.limit) || 20));
+    const [data, total] = await this.repo.findAndCount({
       where,
       relations: { barber: true, user: true },
       order: { createdAt: 'DESC' } as any,
+      skip: (page - 1) * limit,
+      take: limit,
     });
+    return { data, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
   }
 
   async findOne(id: string) {

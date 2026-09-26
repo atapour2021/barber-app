@@ -129,8 +129,8 @@ export class EducationalController {
   @Get()
   @ApiOperation({ summary: 'List educationals (public)' })
   @ApiQuery({ name: 'barberId', required: false })
-  findAll(@Query('barberId') barberId?: string) {
-    return this.service.findAll(barberId);
+  findAll(@Query('barberId') barberId?: string, @Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.service.findAll(barberId, { page, limit });
   }
 
   @Public()

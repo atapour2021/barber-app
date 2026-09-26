@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -38,8 +39,8 @@ export class BarbershopsController {
   @Public()
   @Get()
   @ApiOperation({ summary: 'List barbershops (public)' })
-  findAll() {
-    return this.service.findAll();
+  findAll(@Query('page') page?: string, @Query('limit') limit?: string) {
+    return this.service.findAll({ page, limit });
   }
   @Public()
   @Get(':id')
