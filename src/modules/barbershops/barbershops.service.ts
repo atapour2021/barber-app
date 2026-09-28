@@ -17,9 +17,17 @@ export class BarbershopsService {
     const page = Math.max(1, Number(q.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(q.limit) || 20));
     const hasPaging = q.page !== undefined || q.limit !== undefined;
-    if (!hasPaging) return this.repo.find({ order: { createdAt: 'DESC' } as any });
-    const [data, total] = await this.repo.findAndCount({ order: { createdAt: 'DESC' } as any, skip: (page - 1) * limit, take: limit });
-    return { data, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
+    if (!hasPaging)
+      return this.repo.find({ order: { createdAt: 'DESC' } as any });
+    const [data, total] = await this.repo.findAndCount({
+      order: { createdAt: 'DESC' } as any,
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+    return {
+      data,
+      meta: { total, page, limit, pages: Math.ceil(total / limit) },
+    };
   }
   async findOne(id: string) {
     const e = await this.repo.findOne({ where: { id } });

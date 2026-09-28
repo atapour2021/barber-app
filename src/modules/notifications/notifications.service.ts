@@ -35,7 +35,9 @@ export class NotificationsService {
     data?: Record<string, any> | null,
   ): Promise<Notification> {
     if (!userId) {
-      this.dispatcher['logger']?.warn?.(`skip notification ${type}: empty userId`);
+      this.dispatcher['logger']?.warn?.(
+        `skip notification ${type}: empty userId`,
+      );
       return null as any;
     }
     const entity = this.repo.create({

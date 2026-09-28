@@ -56,14 +56,22 @@ export class LocationsController {
   @Roles(Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN, Role.USER)
   @Get('mine')
   @ApiOperation({ summary: 'List own locations' })
-  findMine(@CurrentUser() user: any, @Query('page') page?: string, @Query('limit') limit?: string) {
+  findMine(
+    @CurrentUser() user: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
     return this.service.findMine(user, { page, limit });
   }
 
   @Roles(Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN, Role.USER)
   @Get('me')
   @ApiOperation({ summary: 'List own locations (alias for mine)' })
-  findMe(@CurrentUser() user: any, @Query('page') page?: string, @Query('limit') limit?: string) {
+  findMe(
+    @CurrentUser() user: any,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
     return this.service.findMine(user, { page, limit });
   }
 

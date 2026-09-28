@@ -98,7 +98,10 @@ export class AdminController {
   @Delete('users/:id')
   @ApiOperation({ summary: 'Delete user (Admin)' })
   @ApiParam({ name: 'id' })
-  removeUser(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() actor: any) {
+  removeUser(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: any,
+  ) {
     return this.admin.removeUser(id, actor);
   }
 

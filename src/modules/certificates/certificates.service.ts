@@ -72,7 +72,10 @@ export class CertificatesService {
       skip: (page - 1) * limit,
       take: limit,
     });
-    return { data, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
+    return {
+      data,
+      meta: { total, page, limit, pages: Math.ceil(total / limit) },
+    };
   }
 
   async findOne(id: string) {

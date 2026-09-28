@@ -11,7 +11,14 @@ import { AdminController } from './admin.controller';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Barber, Service, Appointment, Setting, RefreshToken]),
+    TypeOrmModule.forFeature([
+      User,
+      Barber,
+      Service,
+      Appointment,
+      Setting,
+      RefreshToken,
+    ]),
   ],
   controllers: [AdminController],
   providers: [AdminService],

@@ -119,7 +119,10 @@ export class LocationsService {
       skip: (page - 1) * limit,
       take: limit,
     });
-    return { data, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
+    return {
+      data,
+      meta: { total, page, limit, pages: Math.ceil(total / limit) },
+    };
   }
 
   async findMine(actor: any, q?: any) {
@@ -144,7 +147,10 @@ export class LocationsService {
       skip: (page - 1) * limit,
       take: limit,
     });
-    return { data, meta: { total, page, limit, pages: Math.ceil(total / limit) } };
+    return {
+      data,
+      meta: { total, page, limit, pages: Math.ceil(total / limit) },
+    };
   }
 
   async findOne(id: string) {

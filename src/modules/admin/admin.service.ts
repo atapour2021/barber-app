@@ -58,7 +58,8 @@ export class AdminService {
     @InjectRepository(Appointment)
     private appointments: Repository<Appointment>,
     @InjectRepository(Setting) private settings: Repository<Setting>,
-    @InjectRepository(RefreshToken) private refreshTokens: Repository<RefreshToken>,
+    @InjectRepository(RefreshToken)
+    private refreshTokens: Repository<RefreshToken>,
   ) {}
 
   async dashboard() {
@@ -186,14 +187,17 @@ export class AdminService {
     if (aid && String(aid) === String(id))
       throw new ForbiddenException('cannot delete own account');
     const role = String(u.role).toLowerCase();
-    if (role === 'super_admin' && String(actor?.role).toLowerCase() !== 'super_admin')
+    if (
+      role === 'super_admin' &&
+      String(actor?.role).toLowerCase() !== 'super_admin'
+    )
       throw new ForbiddenException('only super_admin can delete super_admin');
-    const barber = await this.barbers.findOne({ where: { userId: id } as any });
+    const barber = await this.barbers.findOne({ where: { userId: id } });
     if (barber) await this.barbers.delete(barber.id);
     await this.refreshTokens
       .createQueryBuilder()
       .update(RefreshToken)
-      .set({ revokedAt: new Date() } as any)
+      .set({ revokedAt: new Date() })
       .where('userId = :uid AND revokedAt IS NULL', { uid: id })
       .execute();
     await this.users.delete(id);
@@ -206,11 +210,14 @@ export class AdminService {
     const aid = actor?.id ?? actor?.sub;
     if (aid && String(aid) === String(id) && dto.isActive === false)
       throw new ForbiddenException('cannot deactivate own account');
-    const val =
-      dto.isActive !== undefined ? dto.isActive : !u.isActive;
-    await this.users.update(id, { isActive: val } as any);
-    const b = await this.barbers.findOne({ where: { userId: id } as any });
-    if (b) await this.barbers.update(b.id, { isActive: val, status: val ? BarberStatus.ACTIVE : BarberStatus.INACTIVE } as any);
+    const val = dto.isActive !== undefined ? dto.isActive : !u.isActive;
+    await this.users.update(id, { isActive: val });
+    const b = await this.barbers.findOne({ where: { userId: id } });
+    if (b)
+      await this.barbers.update(b.id, {
+        isActive: val,
+        status: val ? BarberStatus.ACTIVE : BarberStatus.INACTIVE,
+      });
     return this.getUser(id);
   }
 
@@ -218,11 +225,11 @@ export class AdminService {
     const u = await this.users.findOne({ where: { id } });
     if (!u) throw new NotFoundException('User not found');
     const hashed = await bcrypt.hash(dto.password, 10);
-    await this.users.update(id, { password: hashed } as any);
+    await this.users.update(id, { password: hashed });
     await this.refreshTokens
       .createQueryBuilder()
       .update(RefreshToken)
-      .set({ revokedAt: new Date() } as any)
+      .set({ revokedAt: new Date() })
       .where('userId = :uid AND revokedAt IS NULL', { uid: id })
       .execute();
     return { message: 'password reset successfully' };
@@ -330,10 +337,13 @@ export class AdminService {
   async toggleBarberActive(id: string, dto: AdminToggleActiveDto) {
     const b = await this.getBarber(id);
     const val = dto.isActive !== undefined ? dto.isActive : !b.isActive;
-    await this.barbers.update(id, { isActive: val, status: val ? BarberStatus.ACTIVE : BarberStatus.INACTIVE } as any);
+    await this.barbers.update(id, {
+      isActive: val,
+      status: val ? BarberStatus.ACTIVE : BarberStatus.INACTIVE,
+    });
     if ((b as any).userId) {
       const u = await this.users.findOne({ where: { id: (b as any).userId } });
-      if (u) await this.users.update(u.id, { isActive: val } as any);
+      if (u) await this.users.update(u.id, { isActive: val });
     }
     return this.getBarber(id);
   }

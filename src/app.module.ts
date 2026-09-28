@@ -19,6 +19,7 @@ import {
 import { LocationsModule } from './modules/locations/locations.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { WalletModule } from './modules/wallet/wallet.module';
 
 @Module({
   imports: [
@@ -39,6 +40,7 @@ import { AdminModule } from './modules/admin/admin.module';
     NotificationsModule,
     AdminModule,
     LocationsModule,
+    WalletModule,
     TypeOrmModule.forRoot(databaseConfig),
     AuthModule,
   ],
