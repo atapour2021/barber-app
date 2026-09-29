@@ -489,3 +489,32 @@ Build chain
 | Env example | `src/config/.env` |
 
 > Rule: **Grep first, code second. Shortest working diff wins. Don't rebuild what exists.**
+
+---
+
+## 23. AI Hair Style Advisor (new)
+
+**Selected provider — free/open-source, no paid dependency:**
+- Default: HeuristicProvider (src/modules/ai/providers/heuristic.provider.ts) — deterministic, offline, zero-cost, no external API, no key. Image hash -> face shape pool + rule-scored 8 styles (fade, crop, side-part, pompadour, curly, buzz, layered, quiff) filtered by suitable face shapes. Returns 4 recs with Persian copy.
+- Optional upgrade (env-gated): OpenAiCompatibleProvider (src/modules/ai/providers/openai-compatible.provider.ts) — OpenAI-compatible /chat/completions vision API. Active only when AI_API_URL + (AI_API_KEY|OPENAI_API_KEY) set; falls back to heuristic on error/timeout/non-200/invalid JSON. Isolated behind AiProvider interface (src/modules/ai/providers/ai-provider.interface.ts) + AI_PROVIDER token — swap via AiModule factory, controllers never import provider specifics.
+- Why: free, no vendor lock-in, stable endpoint. Self-hosted vision models (local LLaVA/Ollama) fit same interface by implementing AiProvider and pointing AI_API_URL at local server.
+
+**Backend:**
+- Module src/modules/ai/ai.module.ts — TypeOrmModule.forFeature([Service]) for matching, factory picks provider, exports AiService. Registered in app.module.ts.
+- Service src/modules/ai/ai.service.ts — validates image required / only images allowed / 5MB limit; races provider with AI_TIMEOUT_MS (default 15000) -> 503 timeout; validates non-empty -> 503; maps to Service via keyword scoring (up to 6 matchedServices).
+- Controller src/modules/ai/ai.controller.ts — POST /ai/hair-style/recommend @Roles(USER,CUSTOMER,BARBER,ADMIN,SUPER_ADMIN) JwtAuthGuard+RolesGuard, @ApiBearerAuth, FileInterceptor('image', memoryStorage, 5MB, image/*) fileFilter, BadRequest on missing, no disk persistence.
+- Errors: 400 invalid/missing/large, 401 auth, 503 timeout/empty/provider failure. Persian via src/common/filters/fa-errors.ts (image required, only images allowed, 5MB, AI timeout/unavailable/no recommendations).
+- Config env: AI_API_URL (optional), AI_API_KEY|OPENAI_API_KEY, AI_MODEL (default gpt-4o-mini), AI_TIMEOUT_MS (default 15000). No image logging, no storage — buffer in-memory.
+
+**Frontend:**
+- Page barber-ui/src/app/pages/ai-advisor/ai-advisor.page.ts — standalone, signals file/previewUrl/loading/errorMsg/result, dual hidden inputs (gallery accept jpg/png/webp + camera capture=environment), preview via URL.createObjectURL+revoke, validation (type/5MB), privacy banner, skeleton, error retry+change, face-shape badge + Persian names, rec cards (confidence, lengthFa, category, reasonFa, stylingTipsFa, maintenance, booking/services CTA), matched services grid -> /tabs/booking?serviceId=, responsive page-wrap 720px.
+- API src/app/core/api/ai.api.ts (AiApi.recommend(fd:FormData) -> POST /ai/hair-style/recommend) wired via ApiService.ai.recommend.
+- i18n src/app/core/i18n/fa.ts fa.aiAdvisor (privacy, capture/gallery/camera/preview/analyze/analyzing/change/retry/errors/faceShape/confidence/recommendations/reason/stylingTips/bookWithStyle etc.).
+- Routing: src/app/app.routes.ts + src/app/tabs/tabs.routes.ts ai-advisor -> AiAdvisorPage canActivate:[authGuard]; sidebar src/app/shared/components/app-sidebar/app-sidebar.ts + home CTA src/app/pages/home/home.page.ts (sparkles).
+- Guards: auth required; authInterceptor attaches Bearer, refresh on 401.
+
+**Privacy:** photo sent via auth Bearer, in-memory only, not persisted, not logged. Banner informs user. Never written to uploads/.
+
+**Flow:** User -> Camera/Gallery -> Preview -> Analyze -> Face/Style Analysis -> Recommendations + matched Services -> Barber/Service -> Booking (/tabs/booking?serviceId= -> appointments.create -> available-slots -> confirm).
+
+**Tests:** src/modules/ai/ai.service.spec.ts (success/invalid type/empty/timeout/provider failure/empty recs) + ai.controller.spec.ts; src/app/pages/ai-advisor/ai-advisor.page.spec.ts (non-image/too-large/success/error/no-file). Mock provider, no real AI calls. Jest + Vitest.
