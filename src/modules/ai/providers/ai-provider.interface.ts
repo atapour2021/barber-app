@@ -44,6 +44,10 @@ export interface AiProvider {
   readonly name: string;
   readonly model: string;
   recommend(buffer: Buffer, mime: string): Promise<AiAnalysisResult>;
-  preview?(buffer: Buffer, mime: string, rec: HairRecommendation): Promise<string | null>;
+  preview?(
+    buffer: Buffer,
+    mime: string,
+    rec: HairRecommendation,
+  ): Promise<string | null>;
 }
 export const AI_PROVIDER = 'AI_PROVIDER';

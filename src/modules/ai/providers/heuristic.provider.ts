@@ -154,7 +154,11 @@ export class HeuristicProvider implements AiProvider {
   readonly name = 'heuristic';
   readonly model = 'heuristic-v1';
 
-  async preview(buffer: Buffer, mime: string, _rec: HairRecommendation): Promise<string | null> {
+  async preview(
+    buffer: Buffer,
+    mime: string,
+    _rec: HairRecommendation,
+  ): Promise<string | null> {
     return `data:${mime};base64,${buffer.toString('base64')}`;
   }
 

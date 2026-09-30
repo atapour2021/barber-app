@@ -1,6 +1,19 @@
-import { BadRequestException, Controller, Post, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Post,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
 import { Body } from '@nestjs/common';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
@@ -17,7 +30,9 @@ export class AiPreviewController {
 
   @Roles(Role.CUSTOMER, Role.USER, Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN)
   @Post('hair-style/preview')
-  @ApiOperation({ summary: 'AI hair preview — edit hairstyle only, preserve face identity' })
+  @ApiOperation({
+    summary: 'AI hair preview — edit hairstyle only, preserve face identity',
+  })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
@@ -38,7 +53,8 @@ export class AiPreviewController {
       storage: memoryStorage(),
       limits: { fileSize: 5 * 1024 * 1024, files: 1 },
       fileFilter: (_req, f, cb) => {
-        if (!f.mimetype?.startsWith('image/')) return cb(new Error('only images allowed'), false);
+        if (!f.mimetype?.startsWith('image/'))
+          return cb(new Error('only images allowed'), false);
         cb(null, true);
       },
     }),
@@ -52,17 +68,15 @@ export class AiPreviewController {
     @Body('length') length?: string,
   ) {
     if (!file?.buffer?.length) throw new BadRequestException('image required');
-    if (!recommendationId) throw new BadRequestException('recommendationId required');
-    const rec = { id: recommendationId, title, titleFa, category, length: (length as any) ?? 'medium' } as any;
-    const result = await this.ai.preview(file.buffer, file.mimetype, rec);
-    if (!result?.previewImage) {
-      const b64 = file.buffer.toString('base64');
-      return {
-        previewImage: `data:${file.mimetype};base64,${b64}`,
-        mime: file.mimetype,
-        note: 'preview: showing original (no image model configured) — configure AI_PREVIEW_MODEL + AI_API_URL for AI edit',
-      };
-    }
-    return result;
+    if (!recommendationId)
+      throw new BadRequestException('recommendationId required');
+    const rec = {
+      id: recommendationId,
+      title,
+      titleFa,
+      category,
+      length: (length as any) ?? 'medium',
+    } as any;
+    return this.ai.preview(file.buffer, file.mimetype, rec);
   }
 }

@@ -18,19 +18,25 @@ export class OpenAiCompatibleProvider implements AiProvider {
     this.model = process.env.AI_MODEL || 'gpt-4o-mini';
   }
 
-  async preview(buffer: Buffer, mime: string, rec: HairRecommendation): Promise<string | null> {
+  async preview(
+    buffer: Buffer,
+    mime: string,
+    rec: HairRecommendation,
+  ): Promise<string | null> {
     const baseUrl = process.env.AI_API_URL;
     const apiKey = process.env.AI_API_KEY || process.env.OPENAI_API_KEY;
-    const baseImg = String(process.env.AI_PREVIEW_BASE_URL || baseUrl || '').replace(/\/$/, '');
-    const imgModel = process.env.AI_PREVIEW_MODEL || process.env.AI_IMAGE_MODEL || '';
+    const baseImg = String(
+      process.env.AI_PREVIEW_BASE_URL || baseUrl || '',
+    ).replace(/\/$/, '');
+    const imgModel =
+      process.env.AI_PREVIEW_MODEL || process.env.AI_IMAGE_MODEL || '';
     if (!baseImg || !apiKey || !imgModel) return null;
     const timeoutMs = Number(process.env.AI_PREVIEW_TIMEOUT_MS || 30000);
-    const b64 = buffer.toString('base64');
     const prompt = `Edit ONLY the hairstyle of the person in this exact photo. Keep the SAME person identity, same face shape, facial features, skin tone, eyes, nose, mouth, beard/stubble, neck, clothing, pose, camera angle, lighting, background, and image quality exactly as in the input. Change ONLY the hair to: "${rec.titleFa || rec.title}" — category ${rec.category}, length ${rec.length}. Make the hair look natural, realistic, blended with the existing hairline and scalp, no artifacts, no face distortion, no skin smoothing. Photorealistic, high detail.`;
     try {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), timeoutMs);
-      const fd = new FormData() as unknown as globalThis.FormData;
+      const fd = new FormData();
       const blob = new Blob([new Uint8Array(buffer)], { type: mime });
       (fd as any).append('image', blob, 'input.jpg');
       (fd as any).append('prompt', prompt);
@@ -39,7 +45,7 @@ export class OpenAiCompatibleProvider implements AiProvider {
       (fd as any).append('size', '1024x1024');
       const res = await fetch(`${baseImg}/images/edits`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${apiKey}` } as any,
+        headers: { Authorization: `Bearer ${apiKey}` },
         body: fd as any,
         signal: ctrl.signal,
       });
@@ -50,7 +56,8 @@ export class OpenAiCompatibleProvider implements AiProvider {
         return null;
       }
       const j: any = await res.json().catch(() => null);
-      const b64out: string | undefined = j?.data?.[0]?.b64_json || j?.data?.[0]?.b64Json;
+      const b64out: string | undefined =
+        j?.data?.[0]?.b64_json || j?.data?.[0]?.b64Json;
       const url: string | undefined = j?.data?.[0]?.url;
       if (b64out) return `data:image/png;base64,${b64out}`;
       if (url) {

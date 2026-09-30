@@ -58,39 +58,38 @@ export class AiService {
     buffer: Buffer,
     mime: string,
     rec: HairRecommendation,
-  ): Promise<{ previewImage: string; mime: string } | null> {
+  ): Promise<{ previewImage: string; mime: string }> {
     if (!buffer?.length) throw new BadRequestException('image required');
     if (!mime?.startsWith('image/'))
       throw new BadRequestException('only images allowed');
     if (buffer.length > 5 * 1024 * 1024)
       throw new BadRequestException('image too large (max 5MB)');
     const fn = (this.provider as AiProvider & { preview?: unknown }).preview;
-    const mustReturnImage = true;
     const timeoutMs = Number(process.env.AI_PREVIEW_TIMEOUT_MS || 30000);
     if (typeof fn === 'function') {
       try {
         const out: string | null = await withTimeout(
-          (fn as (b: Buffer, m: string, r: HairRecommendation) => Promise<string | null>).call(
-            this.provider,
-            buffer,
-            mime,
-            rec,
-          ) as Promise<string | null>,
+          fn.call(this.provider, buffer, mime, rec) as Promise<string | null>,
           timeoutMs,
           'AI preview timeout',
         );
         if (out) {
-          const s = out as string;
-          return { previewImage: s, mime: s.startsWith('data:') ? s.slice(5, s.indexOf(';')) || mime : mime };
+          return {
+            previewImage: out,
+            mime: out.startsWith('data:')
+              ? out.slice(5, out.indexOf(';')) || mime
+              : mime,
+          };
         }
       } catch (e: any) {
-        if (e?.message !== 'AI preview timeout') this.logger.warn(`AI preview failed: ${e?.message ?? e}`);
+        if (e?.message !== 'AI preview timeout')
+          this.logger.warn(`AI preview failed: ${e?.message ?? e}`);
       }
     }
-    if (mustReturnImage) {
-      return { previewImage: `data:${mime};base64,${buffer.toString('base64')}`, mime };
-    }
-    return null;
+    return {
+      previewImage: `data:${mime};base64,${buffer.toString('base64')}`,
+      mime,
+    };
   }
 
   private async matchServices(result: AiAnalysisResult): Promise<Service[]> {

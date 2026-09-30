@@ -5,8 +5,32 @@ import { AiService } from './ai.service';
 describe('AiController', () => {
   const svc: Partial<AiService> = {
     recommend: jest.fn().mockResolvedValue({
-      analysis: { faceShape: 'oval', faceShapeConfidence: 0.9, hairCharacteristics: {}, detectedFeatures: ['face'], confidence: 0.9 },
-      recommendations: [{ id: 'a', title: 'A', titleFa: 'الف', category: 'fade', length: 'short', description: 'd', descriptionFa: 'توضیح', reason: 'r', reasonFa: 'دلیل', stylingTips: [], stylingTipsFa: [], confidence: 0.9, suitableFaceShapes: ['oval'], maintenance: 'low', tags: [] }],
+      analysis: {
+        faceShape: 'oval',
+        faceShapeConfidence: 0.9,
+        hairCharacteristics: {},
+        detectedFeatures: ['face'],
+        confidence: 0.9,
+      },
+      recommendations: [
+        {
+          id: 'a',
+          title: 'A',
+          titleFa: 'الف',
+          category: 'fade',
+          length: 'short',
+          description: 'd',
+          descriptionFa: 'توضیح',
+          reason: 'r',
+          reasonFa: 'دلیل',
+          stylingTips: [],
+          stylingTipsFa: [],
+          confidence: 0.9,
+          suitableFaceShapes: ['oval'],
+          maintenance: 'low',
+          tags: [],
+        },
+      ],
       matchedServices: [],
       meta: { provider: 'heuristic', model: 'v1' },
     }),
