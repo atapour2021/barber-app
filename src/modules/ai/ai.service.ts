@@ -14,6 +14,7 @@ import type {
   AiProvider,
   HairRecommendation,
 } from './providers/ai-provider.interface';
+import { HeuristicProvider } from './providers/heuristic.provider';
 
 @Injectable()
 export class AiService {
@@ -86,6 +87,11 @@ export class AiService {
           this.logger.warn(`AI preview failed: ${e?.message ?? e}`);
       }
     }
+    try {
+      const h = new HeuristicProvider();
+      const svg = await h.preview(buffer, mime, rec);
+      if (svg) return { previewImage: svg, mime: 'image/svg+xml' };
+    } catch {}
     return {
       previewImage: `data:${mime};base64,${buffer.toString('base64')}`,
       mime,

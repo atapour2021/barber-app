@@ -29,8 +29,14 @@ export class OpenAiCompatibleProvider implements AiProvider {
       process.env.AI_PREVIEW_BASE_URL || baseUrl || '',
     ).replace(/\/$/, '');
     const imgModel =
-      process.env.AI_PREVIEW_MODEL || process.env.AI_IMAGE_MODEL || '';
-    if (!baseImg || !apiKey || !imgModel) return null;
+      process.env.AI_PREVIEW_MODEL ||
+      process.env.AI_IMAGE_MODEL ||
+      process.env.AI_MODEL ||
+      '';
+    const isGptImage =
+      /gpt-image/i.test(imgModel) || /dall-e/i.test(imgModel);
+    if (!baseImg || !apiKey) return null;
+    if (!imgModel && !isGptImage) return null;
     const timeoutMs = Number(process.env.AI_PREVIEW_TIMEOUT_MS || 30000);
     const prompt = `Edit ONLY the hairstyle of the person in this exact photo. Keep the SAME person identity, same face shape, facial features, skin tone, eyes, nose, mouth, beard/stubble, neck, clothing, pose, camera angle, lighting, background, and image quality exactly as in the input. Change ONLY the hair to: "${rec.titleFa || rec.title}" — category ${rec.category}, length ${rec.length}. Make the hair look natural, realistic, blended with the existing hairline and scalp, no artifacts, no face distortion, no skin smoothing. Photorealistic, high detail.`;
     try {

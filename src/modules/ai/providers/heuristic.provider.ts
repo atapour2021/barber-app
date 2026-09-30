@@ -155,11 +155,14 @@ export class HeuristicProvider implements AiProvider {
   readonly model = 'heuristic-v1';
 
   async preview(
-    buffer: Buffer,
-    mime: string,
-    _rec: HairRecommendation,
+    _buffer: Buffer,
+    _mime: string,
+    rec: HairRecommendation,
   ): Promise<string | null> {
-    return `data:${mime};base64,${buffer.toString('base64')}`;
+    const label = (rec.titleFa || rec.title || rec.id).slice(0, 28);
+    const cat = (rec.category || '').slice(0, 16);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" viewBox="0 0 600 800"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#0b101e"/><stop offset="100%" stop-color="#1a2338"/></linearGradient></defs><rect width="600" height="800" rx="20" fill="url(#g)"/><rect x="24" y="24" width="552" height="552" rx="16" fill="#0f172a" stroke="#f59e0b" stroke-opacity="0.25"/><text x="300" y="310" text-anchor="middle" font-family="Vazirmatn,sans-serif" font-size="22" font-weight="800" fill="#f59e0b">${esc(label)}</text><text x="300" y="340" text-anchor="middle" font-family="Vazirmatn,sans-serif" font-size="13" fill="#94a3b8">${esc(cat)}</text><text x="300" y="620" text-anchor="middle" font-family="Vazirmatn,sans-serif" font-size="11" fill="#64748b">پیش‌نمایش هوش مصنوعی — ${esc(label)}</text><text x="300" y="640" text-anchor="middle" font-family="Vazirmatn,sans-serif" font-size="10" fill="#475569">heuristic preview · ${esc(rec.id)}</text></svg>`;
+    return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
   }
 
   async recommend(buffer: Buffer, _mime?: string): Promise<AiAnalysisResult> {
@@ -209,4 +212,12 @@ function faceShapeFa(s: FaceShape): string {
     unknown: 'نامشخص',
   };
   return m[s] ?? s;
+}
+
+function esc(s: string): string {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
