@@ -3,17 +3,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Service } from '../services/entities/service.entity';
 import { AI_PROVIDER } from './providers/ai-provider.interface';
 import { HeuristicProvider } from './providers/heuristic.provider';
-import { OpenAiCompatibleProvider } from './providers/openai-compatible.provider';
+import { GapGptProvider } from './providers/gapgpt.provider';
 import { AiController } from './ai.controller';
 import { AiService } from './ai.service';
 import { AiPreviewController } from './ai-preview.controller';
 
 function providerFactory() {
-  if (
-    process.env.AI_API_URL &&
-    (process.env.AI_API_KEY || process.env.OPENAI_API_KEY)
-  ) {
-    return new OpenAiCompatibleProvider();
+  if (process.env.AI_API_URL && process.env.AI_API_KEY) {
+    return new GapGptProvider();
   }
   return new HeuristicProvider();
 }
