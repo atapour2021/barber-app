@@ -22,6 +22,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { AdminModule } from './modules/admin/admin.module';
 import { WalletModule } from './modules/wallet/wallet.module';
 import { AiModule } from './modules/ai/ai.module';
+import { ChatbotModule } from './modules/chatbot/chatbot.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { AiModule } from './modules/ai/ai.module';
     LocationsModule,
     WalletModule,
     AiModule,
+    ChatbotModule,
     TypeOrmModule.forRoot(databaseConfig),
     AuthModule,
   ],
