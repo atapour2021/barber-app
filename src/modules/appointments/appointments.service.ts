@@ -282,6 +282,142 @@ export class AppointmentsService {
     };
   }
 
+  async smartSuggestions(q: {
+    serviceId?: string;
+    barberId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    limit?: string | number;
+    preferredTime?: string;
+  }) {
+    const YMD = /^\d{4}-\d{2}-\d{2}$/;
+    const today = new Date().toISOString().slice(0, 10);
+    let from = q.dateFrom || today;
+    let to = q.dateTo || from;
+    if (!YMD.test(from) || !YMD.test(to))
+      throw new BadRequestException('dateFrom/dateTo must be YYYY-MM-DD');
+    if (to < from)
+      throw new BadRequestException('dateTo must be after dateFrom');
+    const days: string[] = [];
+    {
+      const d = new Date(from + 'T00:00:00.000Z');
+      const end = new Date(to + 'T00:00:00.000Z');
+      while (d <= end && days.length < 7) {
+        days.push(d.toISOString().slice(0, 10));
+        d.setUTCDate(d.getUTCDate() + 1);
+      }
+      to = days.length ? days[days.length - 1] : from;
+    }
+    const limit = Math.min(20, Math.max(1, Number(q.limit) || 6));
+    const pref = ['morning', 'afternoon', 'evening'].includes(
+      String(q.preferredTime || ''),
+    )
+      ? String(q.preferredTime)
+      : null;
+    const score = (startTime: string) => {
+      if (!pref) return 0;
+      const h = Number(startTime.slice(11, 13));
+      const isMorning = h < 12;
+      const isAfternoon = h >= 12 && h < 17;
+      const isEvening = h >= 17;
+      const hit =
+        (pref === 'morning' && isMorning) ||
+        (pref === 'afternoon' && isAfternoon) ||
+        (pref === 'evening' && isEvening);
+      return hit ? 0 : 1;
+    };
+    const candidates: Barber[] = [];
+    if (q.barberId) {
+      candidates.push(await this.getBarberOrFail(q.barberId));
+    } else if (q.serviceId) {
+      const svc = await this.serviceRepo.findOne({
+        where: { id: q.serviceId },
+      });
+      if (!svc) throw new NotFoundException('Service not found');
+      candidates.push(await this.getBarberOrFail(svc.barberId));
+    } else {
+      const all = await this.barberRepo.find({
+        where: { isActive: true },
+        take: 20,
+      });
+      candidates.push(...all.filter((b) => b.status === 'active'));
+    }
+    const out: Array<{
+      barberId: string;
+      barberName: string;
+      serviceId: string;
+      serviceName: string;
+      price: number;
+      duration: number;
+      date: string;
+      time: string;
+      startTime: string;
+      endTime: string;
+    }> = [];
+    for (const barber of candidates) {
+      let svc: Service | null = null;
+      if (q.serviceId) {
+        try {
+          svc = await this.getServiceOrFail(q.serviceId, barber.id);
+        } catch {
+          continue;
+        }
+      } else if (q.barberId) {
+        const found = await this.serviceRepo.find({
+          where: { barberId: barber.id },
+          order: { createdAt: 'DESC' } as any,
+          take: 1,
+        });
+        svc = found[0] ?? null;
+        if (!svc) continue;
+      } else {
+        const found = await this.serviceRepo.find({
+          where: { barberId: barber.id },
+          order: { createdAt: 'DESC' } as any,
+          take: 1,
+        });
+        svc = found[0] ?? null;
+        if (!svc) continue;
+      }
+      for (const day of days) {
+        if (isPastDate(day)) continue;
+        let r: any;
+        try {
+          r = await this.availableSlots(barber.id, day, svc.id);
+        } catch {
+          continue;
+        }
+        for (const s of r.slots ?? []) {
+          if (String(s.status).toLowerCase() !== 'available') continue;
+          out.push({
+            barberId: barber.id,
+            barberName: barber.fullName,
+            serviceId: svc.id,
+            serviceName: svc.name,
+            price: Number((svc as any).price),
+            duration: svc.duration,
+            date: day,
+            time: s.time ?? s.startTime.slice(11, 16),
+            startTime: s.startTime,
+            endTime: s.endTime,
+          });
+        }
+      }
+    }
+    out.sort(
+      (a, b) => score(a.startTime) - score(b.startTime) || (a.startTime < b.startTime ? -1 : 1),
+    );
+    const suggestions = out.slice(0, limit);
+    return {
+      from,
+      to,
+      limit,
+      preferredTime: pref,
+      count: suggestions.length,
+      suggestions,
+    };
+  }
+
   async create(dto: CreateAppointmentDto, actor: any) {
     if (!actor?.id) throw new BadRequestException('Unauthorized');
     const barber = await this.getBarberOrFail(dto.barberId);

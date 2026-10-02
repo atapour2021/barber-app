@@ -21,6 +21,7 @@ import { JwtAuthGuard, RolesGuard } from '../../common/guards';
 import { Roles, Public, CurrentUser } from '../../common/decorators';
 import { Role } from '../../enums/role';
 import { CreateAppointmentDto } from './dto/create-appointment.dto';
+import { SmartSuggestionsQueryDto } from './dto/smart-suggestions.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { UpdateAppointmentStatusDto } from './dto/update-appointment-status.dto';
 import { AppointmentsService } from './appointments.service';
@@ -31,6 +32,19 @@ import { AppointmentsService } from './appointments.service';
 @Controller('appointments')
 export class AppointmentsController {
   constructor(private readonly service: AppointmentsService) {}
+
+  @Public()
+  @Get('smart-suggestions')
+  @ApiOperation({ summary: 'Smart Booking Assistant: ranked free slots' })
+  @ApiQuery({ name: 'serviceId', required: false })
+  @ApiQuery({ name: 'barberId', required: false })
+  @ApiQuery({ name: 'dateFrom', required: false, example: '2026-10-03' })
+  @ApiQuery({ name: 'dateTo', required: false, example: '2026-10-09' })
+  @ApiQuery({ name: 'limit', required: false, example: 6 })
+  @ApiQuery({ name: 'preferredTime', required: false, enum: ['morning', 'afternoon', 'evening'] })
+  smartSuggestions(@Query() q: SmartSuggestionsQueryDto) {
+    return this.service.smartSuggestions(q);
+  }
 
   @Public()
   @Get('available-slots')
