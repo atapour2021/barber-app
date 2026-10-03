@@ -17,7 +17,7 @@ export class ChatController {
   @ApiOperation({ summary: 'Chatbot message (rule-based, Persian)' })
   async message(@Body() dto: ChatMessageDto, @CurrentUser() user: any) {
     const role = (user?.role ?? 'customer') as ChatRole;
-    const res = await this.chat.reply(dto.message, role, dto.history as any);
+    const res = await this.chat.reply(dto.message, role, dto.history);
     return { ...res, role };
   }
   @Roles(Role.USER, Role.CUSTOMER, Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN)
@@ -28,10 +28,23 @@ export class ChatController {
     const isBarber = r === 'barber';
     const isAdmin = r === 'admin' || r === 'super_admin';
     const items = isBarber
-      ? ['نوبت‌های امروز', 'مدیریت برنامه کاری', 'افزودن خدمت', 'برنامه کاری', 'وضعیت نوبت‌ها']
+      ? [
+          'نوبت‌های امروز',
+          'مدیریت برنامه کاری',
+          'افزودن خدمت',
+          'برنامه کاری',
+          'وضعیت نوبت‌ها',
+        ]
       : isAdmin
         ? ['داشبورد', 'مدیریت کاربران', 'مدیریت نوبت‌ها', 'تنظیمات']
-        : ['رزرو نوبت', 'خدمات و قیمت', 'معرفی آرایشگران', 'پیگیری نوبت', 'کیف پول', 'مشاور هوشمند'];
+        : [
+            'رزرو نوبت',
+            'خدمات و قیمت',
+            'معرفی آرایشگران',
+            'پیگیری نوبت',
+            'کیف پول',
+            'مشاور هوشمند',
+          ];
     return { role: r, items };
   }
 }

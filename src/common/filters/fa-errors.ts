@@ -97,9 +97,14 @@ export const FA_ERRORS: Record<string, string> = {
   'image too large (max 5MB)': 'حجم تصویر زیاد است (حداکثر ۵ مگابایت)',
   'recommendationId required': 'شناسه پیشنهاد الزامی است',
   'AI service timeout, try again': 'زمان تحلیل تمام شد، دوباره تلاش کنید',
-  'AI service unavailable, try again': 'سرویس هوش مصنوعی در دسترس نیست، دوباره تلاش کنید',
+  'AI service unavailable, try again':
+    'سرویس هوش مصنوعی در دسترس نیست، دوباره تلاش کنید',
   'AI returned no recommendations': 'پیشنهادی یافت نشد',
   'AI provider timeout': 'زمان تحلیل تمام شد',
+  'AI service recommend timeout': 'زمان پیشنهاد خدمات تمام شد',
+  'hairstyleId or hairstyle required':
+    'شناسه استایل یا اطلاعات استایل الزامی است',
+  'hairstyle not found': 'استایل یافت نشد',
 };
 
 const FA_PATTERNS: Array<[RegExp, string]> = [

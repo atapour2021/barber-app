@@ -2,8 +2,13 @@ import { Injectable } from '@nestjs/common';
 import {
   AiAnalysisResult,
   AiProvider,
+  CustomerProfileInput,
+  CustomerProfileResult,
+  CustomerRecommendation,
   FaceShape,
   HairRecommendation,
+  ServiceRecommendInput,
+  ServiceRecommendation,
 } from './ai-provider.interface';
 
 const FACE_SHAPES: FaceShape[] = [
@@ -15,7 +20,7 @@ const FACE_SHAPES: FaceShape[] = [
   'diamond',
 ];
 
-const POOL: Array<
+export const POOL: Array<
   Omit<HairRecommendation, 'confidence' | 'reason' | 'reasonFa'>
 > = [
   {
@@ -165,6 +170,40 @@ export class HeuristicProvider implements AiProvider {
     return `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`;
   }
 
+  async recommendServices(
+    input: ServiceRecommendInput,
+  ): Promise<ServiceRecommendation[]> {
+    const rec = input.hairstyle;
+    if (!input.services.length) return [];
+    const scored = input.services.map((s) => ({
+      s,
+      score: serviceScore(s, {
+        category: rec.category,
+        title: rec.title,
+        titleFa: rec.titleFa,
+        tags: rec.tags ?? [],
+        length: rec.length,
+      }),
+    }));
+    scored.sort((a, b) => b.score - a.score);
+    const top = scored.slice(0, 3);
+    const min = top[0]?.score ?? 0;
+    const chosen =
+      min > 0
+        ? top.filter((x) => x.score > 0)
+        : scored.slice(0, Math.min(3, scored.length));
+    const list = (
+      chosen.length ? chosen : scored.slice(0, Math.min(2, scored.length))
+    ).map((x) => x.s);
+    const r = buildReason(rec);
+    return list.map((s, i) => ({
+      serviceId: s.id,
+      reason: r.reason,
+      reasonFa: r.reasonFa,
+      confidence: Math.round((0.88 - i * 0.08) * 100) / 100,
+    }));
+  }
+
   async recommend(buffer: Buffer, _mime?: string): Promise<AiAnalysisResult> {
     const h = hashPick(buffer);
     const faceShape = FACE_SHAPES[h % FACE_SHAPES.length];
@@ -199,6 +238,10 @@ export class HeuristicProvider implements AiProvider {
       meta: { provider: this.name, model: this.model },
     };
   }
+
+  async customerProfile(input: CustomerProfileInput): Promise<CustomerProfileResult> {
+    return customerProfileHeuristic(input);
+  }
 }
 
 function faceShapeFa(s: FaceShape): string {
@@ -212,6 +255,146 @@ function faceShapeFa(s: FaceShape): string {
     unknown: 'نامشخص',
   };
   return m[s] ?? s;
+}
+
+const STYLING_EXTRAS: Record<string, string[]> = {
+  fade: ['فید و تمیزکاری خط ریش', 'اصلاح کناره‌ها', 'شستشو و حالت‌دهی'],
+  crop: ['کروپ و مرتب‌سازی فرق', 'اصلاح دور گوش', 'واکس مات'],
+  classic: ['فرق بغل و سشوار', 'اصلاح کلاسیک', 'حالت‌دهی حرفه‌ای'],
+  volume: ['پمپادور و حجم‌دهی', 'فید کناره‌ها', 'سشوار حجمی'],
+  curly: ['لایه‌بندی فر', 'مرتب‌سازی فر', 'محصولات مراقبت فر'],
+  buzz: ['باز کات دقیق', 'تمیزکاری خطوط', 'مراقبت پوست سر'],
+  layered: ['لایه‌بندی بلند', 'اصلاح نوک مو', 'نرم‌کننده'],
+  quiff: ['کوییف و فید', 'حالت‌دهی با کلی', 'اسپری تثبیت'],
+  general: ['کوتاهی و استایل', 'اصلاح و فرم‌دهی', 'مشاوره استایل'],
+};
+
+function serviceScore(
+  svc: { name: string; description?: string | null; icon?: string | null },
+  rec: {
+    category: string;
+    title: string;
+    titleFa: string;
+    tags: string[];
+    length: string;
+  },
+): number {
+  const hay =
+    `${svc.name} ${svc.description ?? ''} ${svc.icon ?? ''}`.toLowerCase();
+  const keys = new Set<string>();
+  [rec.category, rec.title, rec.titleFa, ...rec.tags].forEach((t) =>
+    String(t || '')
+      .toLowerCase()
+      .split(/[\s,_\-]+/)
+      .forEach((w) => w && keys.add(w)),
+  );
+  keys.add(rec.length);
+  let score = 0;
+  for (const k of keys) if (k.length >= 2 && hay.includes(k)) score += 2;
+  const cat = rec.category.toLowerCase();
+  if (
+    cat === 'fade' &&
+    (hay.includes('فید') || hay.includes('fade') || hay.includes('کوتاه'))
+  )
+    score += 2;
+  if (cat === 'curly' && (hay.includes('فر') || hay.includes('curly')))
+    score += 2;
+  if (cat === 'buzz' && (hay.includes('باز') || hay.includes('buzz')))
+    score += 2;
+  if (
+    rec.length === 'short' &&
+    (hay.includes('کوتاه') || hay.includes('short'))
+  )
+    score += 1;
+  if (rec.length === 'long' && (hay.includes('بلند') || hay.includes('long')))
+    score += 1;
+  return score;
+}
+
+function buildReason(rec: {
+  titleFa: string;
+  title: string;
+  category: string;
+}): { reason: string; reasonFa: string } {
+  const name = rec.titleFa || rec.title;
+  const extras = STYLING_EXTRAS[rec.category] ?? STYLING_EXTRAS.general;
+  return {
+    reason: `Matches ${name} (${rec.category}) — keeps the cut clean and face-balanced.`,
+    reasonFa: `متناسب با استایل «${name}» — اجرای تمیز کوتاهی و حفظ تعادل چهره. خدمات پیشنهادی: ${extras.slice(0, 2).join('، ')}.`,
+  };
+}
+
+async function customerProfileHeuristic(input: CustomerProfileInput): Promise<CustomerProfileResult> {
+  const { customer, stats, recentAppointments, services } = input;
+  const fullName = `${customer.name} ${customer.family}`.trim();
+  const total = stats.totalAppointments;
+  let personaFa = 'مشتری جدید';
+  if (total === 0) personaFa = 'مشتری جدید — بدون مراجعه ثبت‌شده';
+  else if (total >= 10) personaFa = 'مشتری وفادار';
+  else if (total >= 4) personaFa = 'مشتری منظم';
+  else personaFa = 'مشتری در حال آشنایی';
+  if (total > 0 && stats.lastVisitAt) {
+    const daysSince = Math.floor((Date.now() - new Date(stats.lastVisitAt).getTime()) / 86400000);
+    if (daysSince > 45) personaFa += ' · در معرض ریزش';
+    else if (daysSince > 30) personaFa += ' · نیاز به یادآوری';
+  }
+  if (stats.noShow > 0 || stats.cancelled >= 2) personaFa += ' · الگوی لغو';
+  const favSvc = stats.favoriteServiceNames.slice(0, 2).join('، ') || 'نامشخص';
+  const barberFav = stats.favoriteBarberName || '—';
+  const dayFa: Record<string, string> = { monday: 'دوشنبه', tuesday: 'سه‌شنبه', wednesday: 'چهارشنبه', thursday: 'پنجشنبه', friday: 'جمعه', saturday: 'شنبه', sunday: 'یکشنبه' };
+  const prefDayFa = stats.preferredDayOfWeek ? dayFa[stats.preferredDayOfWeek] ?? stats.preferredDayOfWeek : 'نامشخص';
+  const avgFa = stats.avgDaysBetween ? `هر ${Math.round(stats.avgDaysBetween)} روز` : '—';
+  const lastFa = stats.lastVisitAt ? new Date(stats.lastVisitAt).toISOString().slice(0, 10) : '—';
+  const summary = `${fullName} has ${total} appointments (${stats.completed} completed). Favorite: ${favSvc}. Avg interval: ${avgFa}. Preferred day: ${prefDayFa}.`;
+  const summaryFa = `${fullName} با ${total} نوبت (${stats.completed} تکمیل‌شده)، محبوب‌ترین خدمت: ${favSvc}، میانگین فاصله مراجعه ${avgFa}، روز ترجیحی ${prefDayFa}، آخرین مراجعه ${lastFa} است.`;
+  const insights: string[] = [];
+  const insightsFa: string[] = [];
+  if (total === 0) {
+    insights.push('No history yet — opportunity to create first impression');
+    insightsFa.push('بدون سابقه مراجعه — فرصت برای ایجاد اولین تجربه عالی');
+  } else {
+    if (stats.completed / Math.max(1, total) >= 0.7) { insights.push('High completion rate — reliable customer'); insightsFa.push('نرخ تکمیل بالا — مشتری قابل اعتماد'); }
+    if (stats.cancelled >= 2) { insights.push(`Frequent cancellations (${stats.cancelled}) — confirm before slot`); insightsFa.push(`لغو مکرر (${stats.cancelled} بار) — قبل از رزرو تایید بگیرید`); }
+    if (stats.noShow > 0) { insights.push(`No-show ${stats.noShow}x — send reminder`); insightsFa.push(`${stats.noShow} بار عدم حضور — یادآوری ارسال کنید`); }
+    if (stats.avgDaysBetween && stats.avgDaysBetween <= 14) { insights.push('Short interval — suggest maintenance package'); insightsFa.push('فاصله کوتاه مراجعه — پکیج نگهداری پیشنهاد دهید'); }
+    if (stats.avgDaysBetween && stats.avgDaysBetween >= 35) { insights.push('Long interval — re-engagement offer recommended'); insightsFa.push('فاصله طولانی — پیشنهاد بازگشت بدهید'); }
+    if (recentAppointments.length) {
+      const lastSvc = recentAppointments[0].serviceName;
+      insights.push(`Last service: ${lastSvc}`);
+      insightsFa.push(`آخرین خدمت: ${lastSvc}`);
+    }
+    if (stats.preferredDayOfWeek) { insights.push(`Prefers ${stats.preferredDayOfWeek}s`); insightsFa.push(`ترجیح روز: ${prefDayFa}`); }
+  }
+  if (!insights.length) { insights.push('Regular customer — keep consistent service'); insightsFa.push('مشتری منظم — کیفیت را ثابت نگه دارید'); }
+  const preferencesFa = `خدمت محبوب: ${favSvc} · آرایشگر محبوب: ${barberFav} · روز ترجیحی: ${prefDayFa} · فاصله میانگین: ${avgFa}`;
+  const scored = services.map((s) => {
+    let score = 0;
+    const hay = `${s.name} ${s.description ?? ''}`.toLowerCase();
+    for (const fav of stats.favoriteServiceNames) if (fav && hay.includes(fav.toLowerCase().slice(0, 4))) score += 5;
+    if (recentAppointments[0]?.serviceName && hay.includes(recentAppointments[0].serviceName.toLowerCase().slice(0, 4))) score += 2;
+    return { s, score };
+  }).sort((a, b) => b.score - a.score);
+  const top = (scored[0]?.score ? scored.filter((x) => x.score > 0).slice(0, 3) : scored.slice(0, 3)).map((x) => x.s).slice(0, 3);
+  const finalRecs: CustomerRecommendation[] = top.length ? top.map((s, i) => ({
+    title: s.name,
+    titleFa: s.name,
+    reason: `Based on favorite ${favSvc} and recent ${recentAppointments[0]?.serviceName ?? 'history'}`,
+    reasonFa: `بر اساس علاقه به «${favSvc}» و آخرین خدمت «${recentAppointments[0]?.serviceName ?? 'تاریخچه'}» — مناسب برای حفظ رضایت و تکرار مراجعه.`,
+    serviceId: s.id,
+    confidence: Math.round((0.88 - i * 0.08) * 100) / 100,
+    tags: ['history-based'],
+  })) : [];
+  if (!finalRecs.length && services.length) {
+    const fallback = services.slice(0, 2).map((s, i) => ({
+      title: s.name, titleFa: s.name, reason: 'Popular service', reasonFa: 'خدمت پرطرفدار — پیشنهاد اولیه مناسب', serviceId: s.id, confidence: 0.75 - i * 0.07, tags: ['general'],
+    }));
+    finalRecs.push(...fallback);
+  }
+  if (stats.lastVisitAt) {
+    const daysSince = Math.floor((Date.now() - new Date(stats.lastVisitAt).getTime()) / 86400000);
+    if (daysSince > 30 && finalRecs.length < 3) finalRecs.push({ title: 'Re-engagement', titleFa: 'پیشنهاد بازگشت', reason: `Last visit ${daysSince} days ago`, reasonFa: `آخرین مراجعه ${daysSince} روز پیش — پیام یادآوری با تخفیف بازگشت ارسال کنید`, confidence: 0.72, tags: ['retention'] });
+  }
+  return { summary, summaryFa, personaFa, insights, insightsFa, preferencesFa, recommendations: finalRecs.slice(0, 4), meta: { provider: 'heuristic', model: 'heuristic-v1' } };
 }
 
 function esc(s: string): string {
