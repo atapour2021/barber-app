@@ -15,6 +15,8 @@ import { AI_PROVIDER } from './providers/ai-provider.interface';
 import type {
   AiAnalysisResult,
   AiProvider,
+  BusinessInsightsInput,
+  BusinessInsightsResult,
   CustomerProfileInput,
   CustomerProfileResult,
   HairRecommendation,
@@ -161,6 +163,135 @@ export class AiService {
       result = await new HeuristicProvider().smartReminder!(input);
     }
     return { ...result, customer: { id: user.id, name: (user as any).name, family: (user as any).family, username: (user as any).username }, stats: input.stats, recentAppointments: input.recentAppointments };
+  }
+
+  async businessInsights(query: { from?: string; to?: string; days?: number }): Promise<BusinessInsightsResult & { aggregates: { period: BusinessInsightsInput['period']; totals: BusinessInsightsInput['totals']; revenue: BusinessInsightsInput['revenue']; topServices: BusinessInsightsInput['topServices']; topBarbers: BusinessInsightsInput['topBarbers']; customers: BusinessInsightsInput['customers']; rates: BusinessInsightsInput['rates']; dailyBreakdown: BusinessInsightsInput['dailyBreakdown']; trends: BusinessInsightsInput['trends'] }; periodLabelFa: string }> {
+    const daysIn = Number((query as any).days);
+    const hasDays = Number.isFinite(daysIn) && daysIn >= 7 && daysIn <= 365;
+    let toD: Date;
+    if ((query as any).to) {
+      const t = new Date(String((query as any).to).slice(0, 10) + 'T23:59:59.999Z');
+      toD = isNaN(t.getTime()) ? new Date() : t;
+    } else toD = new Date();
+    toD.setUTCHours(23, 59, 59, 999);
+    let fromD: Date;
+    if ((query as any).from) {
+      const f = new Date(String((query as any).from).slice(0, 10) + 'T00:00:00.000Z');
+      fromD = isNaN(f.getTime()) ? new Date(toD.getTime() - 29 * 86400000) : f;
+      fromD.setUTCHours(0, 0, 0, 0);
+    } else {
+      const d = hasDays ? daysIn : 30;
+      fromD = new Date(toD.getTime() - (d - 1) * 86400000);
+      fromD.setUTCHours(0, 0, 0, 0);
+    }
+    if (fromD.getTime() > toD.getTime()) { const tmp = fromD; fromD = toD; toD = tmp as Date; fromD.setUTCHours(0, 0, 0, 0); toD.setUTCHours(23, 59, 59, 999); }
+    const maxSpan = 365 * 86400000;
+    if (toD.getTime() - fromD.getTime() > maxSpan) { fromD = new Date(toD.getTime() - 364 * 86400000); fromD.setUTCHours(0, 0, 0, 0); }
+    const days = Math.max(1, Math.round((toD.getTime() - fromD.getTime()) / 86400000) + 1);
+    const all = await this.apptRepo.find({ relations: { service: true, barber: true } as any, order: { startTime: 'DESC' } as any, take: 5000 });
+    const inPeriod = all.filter((a) => {
+      const ts = new Date((a as any).startTime).getTime();
+      return !isNaN(ts) && ts >= fromD.getTime() && ts <= toD.getTime();
+    });
+    const completed = inPeriod.filter((a) => String(a.status) === 'completed');
+    const cancelled = inPeriod.filter((a) => String(a.status) === 'cancelled');
+    const noShow = inPeriod.filter((a) => String(a.status) === 'no_show');
+    const pending = inPeriod.filter((a) => String(a.status) === 'pending');
+    const confirmed = inPeriod.filter((a) => String(a.status) === 'confirmed');
+    const revenueTotal = completed.reduce((s, a: any) => s + Number(a.service?.price ?? 0), 0);
+    const avgPerCompleted = completed.length ? revenueTotal / completed.length : 0;
+    const byDayMap = new Map<string, { count: number; revenue: number }>();
+    for (const a of inPeriod) {
+      const k = new Date((a as any).startTime).toISOString().slice(0, 10);
+      const cur = byDayMap.get(k) ?? { count: 0, revenue: 0 };
+      cur.count++;
+      if (String(a.status) === 'completed') cur.revenue += Number((a as any).service?.price ?? 0);
+      byDayMap.set(k, cur);
+    }
+    const byDayKeys = Array.from(byDayMap.keys()).sort();
+    const dailyBreakdown = byDayKeys.map((k) => ({ date: k, count: byDayMap.get(k)!.count, revenue: Math.round(byDayMap.get(k)!.revenue * 100) / 100 }));
+    const revenueByDay: Record<string, number> = {};
+    for (const d of dailyBreakdown) revenueByDay[d.date] = d.revenue;
+    const svcMap = new Map<string, { name: string; count: number; revenue: number }>();
+    for (const a of inPeriod) {
+      const sid = String((a as any).serviceId ?? (a as any).service?.id ?? 'unknown');
+      const name = String((a as any).service?.name ?? sid.slice(0, 8));
+      const cur = svcMap.get(sid) ?? { name, count: 0, revenue: 0 };
+      cur.name = name;
+      cur.count++;
+      if (String(a.status) === 'completed') cur.revenue += Number((a as any).service?.price ?? 0);
+      svcMap.set(sid, cur);
+    }
+    const topServices = [...svcMap.values()].sort((a, b) => b.count - a.count).slice(0, 5).map((x) => ({ name: x.name, count: x.count, revenue: Math.round(x.revenue * 100) / 100 }));
+    const barberMap = new Map<string, { name: string; count: number; revenue: number; completed: number }>();
+    for (const a of inPeriod) {
+      const bid = String((a as any).barberId ?? (a as any).barber?.id ?? 'unknown');
+      const name = String((a as any).barber?.fullName ?? bid.slice(0, 8));
+      const cur = barberMap.get(bid) ?? { name, count: 0, revenue: 0, completed: 0 };
+      cur.name = name;
+      cur.count++;
+      if (String(a.status) === 'completed') { cur.completed++; cur.revenue += Number((a as any).service?.price ?? 0); }
+      barberMap.set(bid, cur);
+    }
+    const topBarbers = [...barberMap.values()].sort((a, b) => b.count - a.count).slice(0, 5).map((x) => ({ name: x.name, count: x.count, revenue: Math.round(x.revenue * 100) / 100, completionRate: x.count ? Math.round((x.completed / x.count) * 1000) / 1000 : 0 }));
+    const totalCustomers = await this.userRepo.createQueryBuilder('u').where('LOWER(u.role) IN (:...roles)', { roles: ['customer', 'user'] }).getCount().catch(() => 0);
+    const distinctUserIds = new Set<string>(inPeriod.map((a: any) => String(a.userId ?? a.user?.id ?? '' )).filter(Boolean));
+    const activeCustomersInPeriod = distinctUserIds.size;
+    let newCustomersInPeriod = 0;
+    try {
+      const newUsers = await this.userRepo.createQueryBuilder('u').where('LOWER(u.role) IN (:...roles)', { roles: ['customer', 'user'] }).andWhere('u.createdAt >= :from AND u.createdAt <= :to', { from: fromD, to: toD }).getCount();
+      newCustomersInPeriod = newUsers;
+    } catch { newCustomersInPeriod = 0; }
+    const perUser = new Map<string, number>();
+    for (const a of inPeriod) { const uid = String((a as any).userId ?? ''); if (!uid) continue; perUser.set(uid, (perUser.get(uid) ?? 0) + 1); }
+    let repeat = 0;
+    for (const [, c] of perUser) if (c >= 2) repeat++;
+    const repeatRate = activeCustomersInPeriod ? repeat / activeCustomersInPeriod : null;
+    const total = inPeriod.length;
+    const cancellationRate = total ? cancelled.length / total : 0;
+    const noShowRate = total ? noShow.length / total : 0;
+    const completionRate = total ? completed.length / total : 0;
+    let weekOverWeekCountChange: number | null = null;
+    let weekOverWeekRevenueChange: number | null = null;
+    if (days >= 14) {
+      const last7From = new Date(toD.getTime() - 6 * 86400000); last7From.setUTCHours(0, 0, 0, 0);
+      const prev7From = new Date(toD.getTime() - 13 * 86400000); prev7From.setUTCHours(0, 0, 0, 0);
+      const prev7To = new Date(toD.getTime() - 7 * 86400000); prev7To.setUTCHours(23, 59, 59, 999);
+      const last7 = inPeriod.filter((a) => { const ts = new Date((a as any).startTime).getTime(); return ts >= last7From.getTime() && ts <= toD.getTime(); });
+      const prev7 = inPeriod.filter((a) => { const ts = new Date((a as any).startTime).getTime(); return ts >= prev7From.getTime() && ts <= prev7To.getTime(); });
+      const last7Rev = last7.filter((a) => String(a.status) === 'completed').reduce((s, a: any) => s + Number(a.service?.price ?? 0), 0);
+      const prev7Rev = prev7.filter((a) => String(a.status) === 'completed').reduce((s, a: any) => s + Number(a.service?.price ?? 0), 0);
+      if (prev7.length) weekOverWeekCountChange = (last7.length - prev7.length) / prev7.length;
+      if (prev7Rev) weekOverWeekRevenueChange = (last7Rev - prev7Rev) / prev7Rev;
+      else if (last7Rev) weekOverWeekRevenueChange = 1;
+    }
+    const input: BusinessInsightsInput = {
+      period: { from: fromD.toISOString().slice(0, 10), to: toD.toISOString().slice(0, 10), days },
+      totals: { totalAppointments: total, pending: pending.length, confirmed: confirmed.length, completed: completed.length, cancelled: cancelled.length, noShow: noShow.length },
+      revenue: { total: Math.round(revenueTotal * 100) / 100, avgPerCompleted: Math.round(avgPerCompleted * 100) / 100, byDay: revenueByDay },
+      topServices,
+      topBarbers,
+      customers: { totalCustomers, activeCustomersInPeriod, newCustomersInPeriod, repeatRate: repeatRate != null ? Math.round(repeatRate * 1000) / 1000 : null },
+      rates: { cancellationRate: Math.round(cancellationRate * 1000) / 1000, noShowRate: Math.round(noShowRate * 1000) / 1000, completionRate: Math.round(completionRate * 1000) / 1000 },
+      dailyBreakdown,
+      trends: { weekOverWeekCountChange: weekOverWeekCountChange != null ? Math.round(weekOverWeekCountChange * 1000) / 1000 : null, weekOverWeekRevenueChange: weekOverWeekRevenueChange != null ? Math.round(weekOverWeekRevenueChange * 1000) / 1000 : null },
+    };
+    const timeoutMs = Number(process.env.AI_BUSINESS_INSIGHTS_TIMEOUT_MS || 15000);
+    let result: BusinessInsightsResult;
+    const fn = (this.provider as AiProvider & { businessInsights?: unknown }).businessInsights;
+    if (typeof fn === 'function') {
+      try {
+        result = await withTimeout((fn as any).call(this.provider, input) as Promise<BusinessInsightsResult>, timeoutMs, 'AI business insights timeout');
+        if (!result?.summaryFa || !Array.isArray(result.insightsFa)) throw new Error('empty');
+      } catch (e: any) {
+        if (e?.message !== 'AI business insights timeout') this.logger.warn(`AI businessInsights failed: ${e?.message ?? e}`);
+        result = await new HeuristicProvider().businessInsights!(input);
+      }
+    } else {
+      result = await new HeuristicProvider().businessInsights!(input);
+    }
+    const periodLabelFa = `${input.period.from} تا ${input.period.to} (${days} روز)`;
+    return { ...result, aggregates: { period: input.period, totals: input.totals, revenue: input.revenue, topServices: input.topServices, topBarbers: input.topBarbers, customers: input.customers, rates: input.rates, dailyBreakdown: input.dailyBreakdown, trends: input.trends }, periodLabelFa };
   }
 
   async smartReminderForSelf(actor: any): Promise<SmartReminderResult & { customer: { id: string; name: string; family: string; username: string }; stats: SmartReminderInput['stats']; recentAppointments: SmartReminderInput['recentAppointments'] }> {

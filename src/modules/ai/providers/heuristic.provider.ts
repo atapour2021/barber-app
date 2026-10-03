@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import {
   AiAnalysisResult,
   AiProvider,
+  BusinessInsightsInput,
+  BusinessInsightsResult,
   CustomerProfileInput,
   CustomerProfileResult,
   CustomerRecommendation,
@@ -247,6 +249,10 @@ export class HeuristicProvider implements AiProvider {
 
   async smartReminder(input: SmartReminderInput): Promise<SmartReminderResult> {
     return smartReminderHeuristic(input);
+  }
+
+  async businessInsights(input: BusinessInsightsInput): Promise<BusinessInsightsResult> {
+    return businessInsightsHeuristic(input);
   }
 }
 
@@ -501,6 +507,82 @@ async function smartReminderHeuristic(input: SmartReminderInput): Promise<SmartR
     suggestedServices.push(...services.slice(0, 2).map((s, i) => ({ serviceId: s.id, title: s.name, titleFa: s.name, reasonFa: 'خدمت پرطرفدار — پیشنهاد مناسب برای نوبت بعدی', confidence: 0.72 - i * 0.06 })));
   }
   return { predictedDate, predictedDaysFromNow, frequencyLabelFa, confidence, message, messageFa, insightsFa, suggestedServices: suggestedServices.slice(0, 3), meta: { provider: 'heuristic', model: 'heuristic-v1' } };
+}
+
+async function businessInsightsHeuristic(input: BusinessInsightsInput): Promise<BusinessInsightsResult> {
+  const t = input.totals;
+  const rev = input.revenue;
+  const rates = input.rates;
+  const cust = input.customers;
+  const topSvcs = input.topServices.slice(0, 3);
+  const topBarbers = input.topBarbers.slice(0, 3);
+  const sumFa = `در ${input.period.days} روز اخیر، ${t.totalAppointments} نوبت (${t.completed} تکمیل، ${t.cancelled} لغو، ${t.noShow} عدم حضور) با درآمد ${Math.round(rev.total).toLocaleString('fa-IR')} تومان ثبت شد. میانگین هر نوبت تکمیل‌شده ${Math.round(rev.avgPerCompleted).toLocaleString('fa-IR')} تومان، نرخ تکمیل ${(rates.completionRate * 100).toFixed(1)}٪ و لغو ${(rates.cancellationRate * 100).toFixed(1)}٪ است.`;
+  const insights: string[] = [];
+  const insightsFa: string[] = [];
+  if (t.totalAppointments === 0) {
+    insights.push('No appointments in period');
+    insightsFa.push('در این بازه نوبتی ثبت نشده — داده برای تحلیل کافی نیست');
+  } else {
+    if (rates.completionRate >= 0.7) { insights.push('High completion'); insightsFa.push('نرخ تکمیل بالا — عملکرد قابل اعتماد'); }
+    if (rates.cancellationRate >= 0.2) { insights.push(`High cancellation ${(rates.cancellationRate * 100).toFixed(1)}%`); insightsFa.push(`نرخ لغو بالا ${(rates.cancellationRate * 100).toFixed(1)}٪ — سیاست تایید/پیش‌پرداخت را بررسی کنید`); }
+    if (rates.noShowRate >= 0.08) { insights.push(`No-show ${((rates.noShowRate) * 100).toFixed(1)}%`); insightsFa.push(`عدم حضور ${(rates.noShowRate * 100).toFixed(1)}٪ — یادآوری پیامکی/تماسی را تقویت کنید`); }
+    if (cust.repeatRate != null && cust.repeatRate < 0.25) { insights.push('Low repeat rate'); insightsFa.push('تکرار مراجعه پایین — بسته وفاداری/یادآور پیشنهاد دهید'); }
+    if (topSvcs[0]) { insights.push(`Top service: ${topSvcs[0].name} x${topSvcs[0].count}`); insightsFa.push(`محبوب‌ترین خدمت: «${topSvcs[0].name}» با ${topSvcs[0].count} نوبت — ظرفیت این خدمت را تقویت کنید`); }
+    if (topBarbers[0] && t.totalAppointments > 6) {
+      const leader = topBarbers[0];
+      const share = ((leader.count / Math.max(1, t.totalAppointments)) * 100).toFixed(0);
+      if (Number(share) >= 55) { insights.push(`${leader.name} handles ${share}%`); insightsFa.push(`«${leader.name}» سهم ${share}٪ نوبت‌ها را دارد — توزیع نوبت‌ها را متعادل کنید`); }
+    }
+    if (input.trends.weekOverWeekCountChange != null) {
+      const ch = input.trends.weekOverWeekCountChange;
+      if (ch <= -0.2) insightsFa.push(`افت ${Math.abs(Math.round(ch * 100))}٪ تعداد نوبت نسبت به هفته قبل — کمپین بازگشت را فعال کنید`);
+      else if (ch >= 0.2) insightsFa.push(`رشد ${Math.round(ch * 100)}٪ تعداد نوبت نسبت به هفته قبل — ظرفیت را حفظ کنید`);
+    }
+  }
+  if (!insightsFa.length) insightsFa.push('عملکرد پایدار — روندها را هفتگی پایش کنید');
+  if (!insights.length) insights.push('Stable — monitor weekly');
+
+  const trends: BusinessInsightsResult['trends'] = [];
+  const cCh = input.trends.weekOverWeekCountChange;
+  if (cCh != null) {
+    const dir: 'up' | 'down' | 'stable' = Math.abs(cCh) < 0.05 ? 'stable' : cCh > 0 ? 'up' : 'down';
+    trends.push({ label: 'Appointments WoW', labelFa: 'تغییر هفتگی نوبت‌ها', direction: dir, changePercent: Math.round(cCh * 1000) / 10, period: '7d vs prev 7d', detailFa: dir === 'stable' ? 'بدون تغییر محسوس' : dir === 'up' ? `رشد ${Math.round(cCh * 100)}٪` : `افت ${Math.abs(Math.round(cCh * 100))}٪` });
+  }
+  const rCh = input.trends.weekOverWeekRevenueChange;
+  if (rCh != null) {
+    const dir: 'up' | 'down' | 'stable' = Math.abs(rCh) < 0.05 ? 'stable' : rCh > 0 ? 'up' : 'down';
+    trends.push({ label: 'Revenue WoW', labelFa: 'تغییر هفتگی درآمد', direction: dir, changePercent: Math.round(rCh * 1000) / 10, period: '7d vs prev 7d', detailFa: dir === 'stable' ? 'درآمد پایدار' : dir === 'up' ? `رشد ${Math.round(rCh * 100)}٪` : `افت ${Math.abs(Math.round(rCh * 100))}٪` });
+  }
+  if (input.dailyBreakdown.length >= 7) {
+    const last = input.dailyBreakdown.slice(-7);
+    const avg = last.reduce((s, x) => s + x.count, 0) / 7;
+    const lastDay = last[last.length - 1];
+    if (avg > 0 && lastDay.count >= avg * 1.6) trends.push({ label: 'Spike', labelFa: 'جهش روزانه', direction: 'up', changePercent: Math.round(((lastDay.count / avg) - 1) * 1000) / 10, period: lastDay.date, detailFa: `${lastDay.date}: ${lastDay.count} نوبت vs میانگین ${avg.toFixed(1)}` });
+  }
+
+  const anomalies: BusinessInsightsResult['anomalies'] = [];
+  if (rates.cancellationRate >= 0.25) anomalies.push({ title: 'High cancellation', titleFa: 'نرخ لغو بالا', detail: `${(rates.cancellationRate * 100).toFixed(1)}% cancelled`, detailFa: `لغو ${(rates.cancellationRate * 100).toFixed(1)}٪ کل نوبت‌ها — بالاتر از آستانه ۲۵٪`, severity: rates.cancellationRate >= 0.4 ? 'high' : 'medium', metric: 'cancellationRate' });
+  if (rates.noShowRate >= 0.1) anomalies.push({ title: 'Elevated no-show', titleFa: 'عدم حضور بالا', detail: `${(rates.noShowRate * 100).toFixed(1)}% no-show`, detailFa: `عدم حضور ${(rates.noShowRate * 100).toFixed(1)}٪ — یادآوری ۲۴ساعته را فعال کنید`, severity: rates.noShowRate >= 0.18 ? 'high' : 'medium', metric: 'noShowRate' });
+  if (input.dailyBreakdown.length) {
+    const vals = input.dailyBreakdown.map(d => d.count);
+    const mean = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const sd = Math.sqrt(vals.reduce((a, b) => a + (b - mean) ** 2, 0) / Math.max(1, vals.length));
+    for (const d of input.dailyBreakdown) if (sd > 0 && (d.count - mean) / sd >= 2) { anomalies.push({ title: 'Daily spike', titleFa: 'جهش روزانه', detail: `${d.date}: ${d.count} vs avg ${mean.toFixed(1)}`, detailFa: `${d.date}: ${d.count} نوبت، میانگین ${mean.toFixed(1)} (انحراف ${(d.count - mean).toFixed(1)})`, severity: d.count >= mean + 2.5 * sd ? 'high' : 'medium', metric: d.date }); break; }
+  }
+  if (topBarbers.length >= 2) {
+    const [a, b] = topBarbers;
+    if (a.count >= (b.count * 2.5) && t.totalAppointments >= 10) anomalies.push({ title: 'Workload imbalance', titleFa: 'عدم توازن بار آرایشگرها', detail: `${a.name} ${a.count} vs ${b.name} ${b.count}`, detailFa: `«${a.name}» ${a.count} نوبت در برابر «${b.name}» ${b.count} — توزیع را بازنگری کنید`, severity: 'medium', metric: 'topBarbers' });
+  }
+
+  const recommendations: BusinessInsightsResult['recommendations'] = [];
+  if (rates.cancellationRate >= 0.18) recommendations.push({ title: 'Confirm pending faster', titleFa: 'تایید سریع‌تر نوبت‌های در انتظار', reason: 'High cancellation wastes slots', reasonFa: `لغو بالا (${(rates.cancellationRate * 100).toFixed(1)}٪) ظرفیت را هدر می‌دهد`, priority: 'high', actionFa: 'تایید در ۲ ساعت + یادآوری ۲۴ساعته + سیاست لغو شفاف', expectedImpactFa: 'کاهش لغو تا ۳۰٪' });
+  if (rates.noShowRate >= 0.08) recommendations.push({ title: 'Reduce no-show', titleFa: 'کاهش عدم حضور', reason: 'No-show loses revenue', reasonFa: `عدم حضور ${(rates.noShowRate * 100).toFixed(1)}٪ درآمد را کاهش می‌دهد`, priority: 'high', actionFa: 'پیامک/واتساپ ۲۴ساعته + تماس برای VIP + لیست انتظار', expectedImpactFa: 'کاهش no-show' });
+  if (input.trends.weekOverWeekCountChange != null && input.trends.weekOverWeekCountChange <= -0.15) recommendations.push({ title: 'Re-engagement campaign', titleFa: 'کمپین بازگشت مشتری', reason: 'WoW drop', reasonFa: `افت ${Math.abs(Math.round((input.trends.weekOverWeekCountChange ?? 0) * 100))}٪ هفتگی`, priority: 'high', actionFa: 'پیام تخفیف بازگشت برای مشتریان ۳۰+ روز بدون مراجعه', expectedImpactFa: 'بازگشت ۱۰-۱۵٪' });
+  if (cust.repeatRate != null && cust.repeatRate < 0.3 && t.totalAppointments >= 8) recommendations.push({ title: 'Loyalty offer', titleFa: 'بسته وفاداری', reason: 'Low repeat', reasonFa: `تکرار ${(cust.repeatRate * 100).toFixed(0)}٪ پایین است`, priority: 'medium', actionFa: 'کارت ۵+۱ یا تخفیف ماهانه برای مشتریان تکراری', expectedImpactFa: 'افزایش تکرار' });
+  if (topSvcs[0]) recommendations.push({ title: `Push ${topSvcs[0].name}`, titleFa: `تقویت «${topSvcs[0].name}»`, reason: 'Best seller', reasonFa: `«${topSvcs[0].name}» پرفروش‌ترین است`, priority: 'low', actionFa: `اسلات‌های ویژه و باندل با خدمت مکمل برای «${topSvcs[0].name}»`, expectedImpactFa: 'درآمد بیشتر هر نوبت' });
+  if (!recommendations.length) recommendations.push({ title: 'Keep monitoring', titleFa: 'پایش مستمر', reason: 'Stable', reasonFa: 'عملکرد پایدار است', priority: 'low', actionFa: 'گزارش هفتگی + بررسی لغو/no-show', expectedImpactFa: 'حفظ روند' });
+
+  return { summary: `Business in ${input.period.days}d: ${t.totalAppointments} appts, ${t.completed} completed, revenue ${rev.total}`, summaryFa: sumFa, insights, insightsFa, trends: trends.slice(0, 4), anomalies: anomalies.slice(0, 4), recommendations: recommendations.slice(0, 5), meta: { provider: 'heuristic', model: 'heuristic-v1' } };
 }
 
 function esc(s: string): string {

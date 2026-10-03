@@ -13,6 +13,7 @@ import { AiPreviewController } from './ai-preview.controller';
 import { AiServiceRecommendController } from './ai-service-recommend.controller';
 import { AiCustomerProfileController } from './ai-customer-profile.controller';
 import { AiSmartReminderController } from './ai-smart-reminder.controller';
+import { AiBusinessInsightsController } from './ai-business-insights.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 function providerFactory() {
@@ -30,6 +31,7 @@ function providerFactory() {
     AiServiceRecommendController,
     AiCustomerProfileController,
     AiSmartReminderController,
+    AiBusinessInsightsController,
   ],
   providers: [{ provide: AI_PROVIDER, useFactory: providerFactory }, AiService],
   exports: [AiService],

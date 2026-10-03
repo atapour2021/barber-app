@@ -2,6 +2,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   AiAnalysisResult,
   AiProvider,
+  BusinessInsightsInput,
+  BusinessInsightsResult,
   CustomerProfileInput,
   CustomerProfileResult,
   FaceShape,
@@ -273,6 +275,40 @@ export class GapGptProvider implements AiProvider {
       const recs = Array.isArray(p.recommendations) ? p.recommendations.filter((r: any) => !r.serviceId || validIds.has(String(r.serviceId))).slice(0, 4).map((r: any, i: number) => ({ title: String(r.title ?? ''), titleFa: String(r.titleFa ?? r.title ?? ''), reason: String(r.reason ?? ''), reasonFa: String(r.reasonFa ?? r.reason ?? ''), serviceId: r.serviceId ? String(r.serviceId) : undefined, confidence: typeof r.confidence === 'number' ? r.confidence : 0.82 - i * 0.07, tags: Array.isArray(r.tags) ? r.tags.map(String) : [] })) : [];
       return { summary: String(p.summary ?? ''), summaryFa: String(p.summaryFa ?? ''), personaFa: String(p.personaFa ?? ''), insights: Array.isArray(p.insights) ? p.insights.map(String) : [], insightsFa: Array.isArray(p.insightsFa) ? p.insightsFa.map(String) : [], preferencesFa: String(p.preferencesFa ?? ''), recommendations: recs.length ? recs : (await this.fallback.customerProfile!(input)).recommendations, meta: { provider: this.name, model: this.model } };
     } catch { return this.fallback.customerProfile!(input); }
+  }
+
+  async businessInsights(input: BusinessInsightsInput): Promise<BusinessInsightsResult> {
+    if (!process.env.AI_API_KEY) return this.fallback.businessInsights!(input);
+    const base = String(process.env.AI_API_URL || 'https://api.gapgpt.app/v1').replace(/\/$/, '');
+    const apiKey = process.env.AI_API_KEY;
+    const timeoutMs = Number(process.env.AI_BUSINESS_INSIGHTS_TIMEOUT_MS || 15000);
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), timeoutMs);
+      const res = await fetch(`${base}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        signal: ctrl.signal,
+        body: JSON.stringify({
+          model: this.model,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: 'You are a barbershop business analyst. Given aggregated JSON (totals, revenue, top services/barbers, customer counts, rates, daily breakdown, WoW trends, period) return JSON {summary,summaryFa,insights[],insightsFa[],trends:[{label,labelFa,direction:up|down|stable,changePercent:number|null,period,detailFa}],anomalies:[{title,titleFa,detail,detailFa,severity:low|medium|high,metric}],recommendations:[{title,titleFa,reason,reasonFa,priority:low|medium|high,actionFa,expectedImpactFa}]}. Persian required for all Fa fields. 2-3 sentence summaryFa, 3-5 insightsFa, 1-3 trends, 0-3 anomalies, 2-4 recommendations. No markdown. Never include customer PII; only aggregates.' },
+            { role: 'user', content: JSON.stringify(input) },
+          ],
+          max_tokens: 1400, temperature: 0.3,
+        }),
+      });
+      clearTimeout(t);
+      if (!res.ok) return this.fallback.businessInsights!(input);
+      const j: any = await res.json();
+      const p = extractJson(j?.choices?.[0]?.message?.content ?? '');
+      if (!p?.summaryFa || !Array.isArray(p.insightsFa)) return this.fallback.businessInsights!(input);
+      const trends = Array.isArray(p.trends) ? p.trends.slice(0, 4).map((x: any) => ({ label: String(x.label ?? ''), labelFa: String(x.labelFa ?? x.label ?? ''), direction: ['up', 'down', 'stable'].includes(String(x.direction)) ? x.direction : 'stable' as const, changePercent: typeof x.changePercent === 'number' ? x.changePercent : null, period: String(x.period ?? ''), detailFa: x.detailFa ? String(x.detailFa) : undefined })) : [];
+      const anomalies = Array.isArray(p.anomalies) ? p.anomalies.slice(0, 4).map((x: any) => ({ title: String(x.title ?? ''), titleFa: String(x.titleFa ?? x.title ?? ''), detail: String(x.detail ?? ''), detailFa: String(x.detailFa ?? x.detail ?? ''), severity: ['low', 'medium', 'high'].includes(String(x.severity)) ? x.severity : 'medium' as const, metric: x.metric ? String(x.metric) : undefined })) : [];
+      const recommendations = Array.isArray(p.recommendations) ? p.recommendations.slice(0, 5).map((x: any) => ({ title: String(x.title ?? ''), titleFa: String(x.titleFa ?? x.title ?? ''), reason: String(x.reason ?? ''), reasonFa: String(x.reasonFa ?? x.reason ?? ''), priority: ['low', 'medium', 'high'].includes(String(x.priority)) ? x.priority : 'medium' as const, actionFa: String(x.actionFa ?? ''), expectedImpactFa: x.expectedImpactFa ? String(x.expectedImpactFa) : undefined })) : [];
+      return { summary: String(p.summary ?? ''), summaryFa: String(p.summaryFa ?? ''), insights: Array.isArray(p.insights) ? p.insights.map(String) : [], insightsFa: p.insightsFa.map(String), trends, anomalies, recommendations: recommendations.length ? recommendations : (await this.fallback.businessInsights!(input)).recommendations, meta: { provider: this.name, model: this.model } };
+    } catch { return this.fallback.businessInsights!(input); }
   }
 
   async recommend(buffer: Buffer, mime: string): Promise<AiAnalysisResult> {
