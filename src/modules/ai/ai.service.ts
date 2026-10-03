@@ -20,6 +20,8 @@ import type {
   HairRecommendation,
   ServiceRecommendInput,
   ServiceRecommendation,
+  SmartReminderInput,
+  SmartReminderResult,
 } from './providers/ai-provider.interface';
 import { HeuristicProvider } from './providers/heuristic.provider';
 
@@ -33,6 +35,47 @@ export class AiService {
     @InjectRepository(Appointment) private readonly apptRepo: Repository<Appointment>,
     @InjectRepository(Barber) private readonly barberRepo: Repository<Barber>,
   ) {}
+
+  private buildSmartInput(user: any, appointments: any[], services: any[]): SmartReminderInput {
+    const completed = appointments.filter((a) => String(a.status) === 'completed').length;
+    const cancelled = appointments.filter((a) => String(a.status) === 'cancelled').length;
+    const noShow = appointments.filter((a) => String(a.status) === 'no_show').length;
+    const pending = appointments.filter((a) => String(a.status) === 'pending').length;
+    const confirmed = appointments.filter((a) => String(a.status) === 'confirmed').length;
+    const sortedByTime = [...appointments].sort((a, b) => new Date(a.startTime as any).getTime() - new Date(b.startTime as any).getTime());
+    const firstVisitAt = sortedByTime[0] ? new Date(sortedByTime[0].startTime as any).toISOString() : null;
+    const lastVisitAt = sortedByTime.length ? new Date(sortedByTime[sortedByTime.length - 1].startTime as any).toISOString() : null;
+    let avgDaysBetween: number | null = null;
+    if (sortedByTime.length >= 2) {
+      let sum = 0;
+      for (let i = 1; i < sortedByTime.length; i++) sum += (new Date(sortedByTime[i].startTime as any).getTime() - new Date(sortedByTime[i - 1].startTime as any).getTime()) / 86400000;
+      avgDaysBetween = sum / (sortedByTime.length - 1);
+    }
+    const svcCount = new Map<string, { name: string; c: number }>();
+    const barberCount = new Map<string, { name: string; c: number }>();
+    const dayCount = new Map<string, number>();
+    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+    for (const a of appointments) {
+      const sName = (a as any).service?.name ?? String((a as any).serviceId ?? '');
+      if (sName) { const cur = svcCount.get(sName); svcCount.set(sName, { name: sName, c: (cur?.c ?? 0) + 1 }); }
+      const bName = (a as any).barber?.fullName ?? String((a as any).barberId ?? '');
+      if (bName) { const cur = barberCount.get(bName); barberCount.set(bName, { name: bName, c: (cur?.c ?? 0) + 1 }); }
+      try { const d = new Date(a.startTime as any); const day = days[d.getUTCDay()]; dayCount.set(day, (dayCount.get(day) ?? 0) + 1); } catch {}
+    }
+    const favoriteServiceNames = [...svcCount.values()].sort((a, b) => b.c - a.c).slice(0, 3).map((x) => x.name);
+    const favoriteBarberName = [...barberCount.values()].sort((a, b) => b.c - a.c)[0]?.name ?? null;
+    let preferredDayOfWeek: string | null = null;
+    let maxDay = 0;
+    for (const [k, v] of dayCount) if (v > maxDay) { maxDay = v; preferredDayOfWeek = k; }
+    const recentAppointments = appointments.slice(0, 5).map((a) => ({ date: new Date(a.startTime as any).toISOString().slice(0, 10), serviceName: (a as any).service?.name ?? '', barberName: (a as any).barber?.fullName ?? '', status: String(a.status) }));
+    const daysSinceLastVisit = lastVisitAt ? Math.floor((Date.now() - new Date(lastVisitAt).getTime()) / 86400000) : null;
+    return {
+      customer: { id: user.id, name: (user as any).name, family: (user as any).family, username: (user as any).username, phoneNumber: (user as any).phoneNumber, createdAt: (user as any).createdAt ? new Date((user as any).createdAt).toISOString() : undefined },
+      stats: { totalAppointments: appointments.length, completed, cancelled, noShow, pending, confirmed, lastVisitAt, firstVisitAt, avgDaysBetween, favoriteServiceNames, favoriteBarberName, preferredDayOfWeek, totalServices: svcCount.size, daysSinceLastVisit },
+      recentAppointments,
+      services: services.map((s) => ({ id: s.id, name: s.name, description: s.description, price: Number(s.price), duration: s.duration })),
+    };
+  }
 
   async customerProfile(customerId: string, actor?: any): Promise<CustomerProfileResult & { customer: { id: string; name: string; family: string; username: string }; stats: CustomerProfileInput['stats']; recentAppointments: CustomerProfileInput['recentAppointments'] }> {
     if (!customerId) throw new BadRequestException('customerId required');
@@ -94,6 +137,36 @@ export class AiService {
       result = await h.customerProfile!(input);
     }
     return { ...result, customer: { id: user.id, name: (user as any).name, family: (user as any).family, username: (user as any).username }, stats: input.stats, recentAppointments };
+  }
+
+  async smartReminderFor(customerId: string): Promise<SmartReminderResult & { customer: { id: string; name: string; family: string; username: string }; stats: SmartReminderInput['stats']; recentAppointments: SmartReminderInput['recentAppointments'] }> {
+    if (!customerId) throw new BadRequestException('customerId required');
+    const user = await this.userRepo.findOne({ where: { id: customerId } });
+    if (!user) throw new BadRequestException('Customer not found');
+    const appointments = await this.apptRepo.find({ where: { userId: customerId } as any, relations: { service: true, barber: true } as any, order: { startTime: 'DESC' } as any, take: 100 });
+    const services = await this.svcRepo.find({ order: { createdAt: 'DESC' } as any, take: 50 });
+    const input = this.buildSmartInput(user, appointments, services);
+    const timeoutMs = Number(process.env.AI_SMART_REMINDER_TIMEOUT_MS || 12000);
+    let result: SmartReminderResult;
+    const fn = (this.provider as AiProvider & { smartReminder?: unknown }).smartReminder;
+    if (typeof fn === 'function') {
+      try {
+        result = await withTimeout((fn as any).call(this.provider, input) as Promise<SmartReminderResult>, timeoutMs, 'AI smart reminder timeout');
+        if (!result?.messageFa) throw new Error('empty');
+      } catch (e: any) {
+        if (e?.message !== 'AI smart reminder timeout') this.logger.warn(`AI smartReminder failed: ${e?.message ?? e}`);
+        result = await new HeuristicProvider().smartReminder!(input);
+      }
+    } else {
+      result = await new HeuristicProvider().smartReminder!(input);
+    }
+    return { ...result, customer: { id: user.id, name: (user as any).name, family: (user as any).family, username: (user as any).username }, stats: input.stats, recentAppointments: input.recentAppointments };
+  }
+
+  async smartReminderForSelf(actor: any): Promise<SmartReminderResult & { customer: { id: string; name: string; family: string; username: string }; stats: SmartReminderInput['stats']; recentAppointments: SmartReminderInput['recentAppointments'] }> {
+    const id = actor?.id ?? actor?.sub;
+    if (!id) throw new BadRequestException('Unauthorized');
+    return this.smartReminderFor(String(id));
   }
 
   async recommendServices(input: {

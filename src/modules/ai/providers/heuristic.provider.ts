@@ -9,6 +9,8 @@ import {
   HairRecommendation,
   ServiceRecommendInput,
   ServiceRecommendation,
+  SmartReminderInput,
+  SmartReminderResult,
 } from './ai-provider.interface';
 
 const FACE_SHAPES: FaceShape[] = [
@@ -242,6 +244,10 @@ export class HeuristicProvider implements AiProvider {
   async customerProfile(input: CustomerProfileInput): Promise<CustomerProfileResult> {
     return customerProfileHeuristic(input);
   }
+
+  async smartReminder(input: SmartReminderInput): Promise<SmartReminderResult> {
+    return smartReminderHeuristic(input);
+  }
 }
 
 function faceShapeFa(s: FaceShape): string {
@@ -395,6 +401,106 @@ async function customerProfileHeuristic(input: CustomerProfileInput): Promise<Cu
     if (daysSince > 30 && finalRecs.length < 3) finalRecs.push({ title: 'Re-engagement', titleFa: 'پیشنهاد بازگشت', reason: `Last visit ${daysSince} days ago`, reasonFa: `آخرین مراجعه ${daysSince} روز پیش — پیام یادآوری با تخفیف بازگشت ارسال کنید`, confidence: 0.72, tags: ['retention'] });
   }
   return { summary, summaryFa, personaFa, insights, insightsFa, preferencesFa, recommendations: finalRecs.slice(0, 4), meta: { provider: 'heuristic', model: 'heuristic-v1' } };
+}
+
+async function smartReminderHeuristic(input: SmartReminderInput): Promise<SmartReminderResult> {
+  const { customer, stats, recentAppointments, services } = input;
+  const fullName = `${customer.name} ${customer.family}`.trim() || customer.username;
+  const firstName = customer.name || fullName.split(' ')[0] || 'دوست';
+  const total = stats.totalAppointments;
+  const avg = stats.avgDaysBetween;
+  const favSvc = stats.favoriteServiceNames.slice(0, 2).join('، ') || 'خدمت محبوب شما';
+  const favBarber = stats.favoriteBarberName || '';
+  const dayFa: Record<string, string> = { monday: 'دوشنبه', tuesday: 'سه‌شنبه', wednesday: 'چهارشنبه', thursday: 'پنجشنبه', friday: 'جمعه', saturday: 'شنبه', sunday: 'یکشنبه' };
+  const prefDayFa = stats.preferredDayOfWeek ? dayFa[stats.preferredDayOfWeek] ?? stats.preferredDayOfWeek : '';
+  const daysSince = stats.daysSinceLastVisit ?? (stats.lastVisitAt ? Math.floor((Date.now() - new Date(stats.lastVisitAt).getTime()) / 86400000) : null);
+  let avgForPredict = avg;
+  if (avgForPredict == null) {
+    if (total === 0) avgForPredict = 14;
+    else if (total >= 6) avgForPredict = 21;
+    else if (total >= 3) avgForPredict = 24;
+    else avgForPredict = 28;
+  }
+  avgForPredict = Math.max(7, Math.min(90, Math.round(avgForPredict)));
+  let predictedDate: string | null = null;
+  let predictedDaysFromNow: number | null = null;
+  const now = new Date();
+  if (stats.lastVisitAt) {
+    const last = new Date(stats.lastVisitAt);
+    const predicted = new Date(last.getTime() + avgForPredict * 86400000);
+    const diffFromNow = Math.round((predicted.getTime() - now.getTime()) / 86400000);
+    if (diffFromNow <= 0) {
+      const tomorrow = new Date(now.getTime() + 86400000);
+      predictedDate = tomorrow.toISOString().slice(0, 10);
+      predictedDaysFromNow = 1;
+    } else {
+      predictedDate = predicted.toISOString().slice(0, 10);
+      predictedDaysFromNow = diffFromNow;
+    }
+  } else {
+    const soon = new Date(now.getTime() + 7 * 86400000);
+    predictedDate = soon.toISOString().slice(0, 10);
+    predictedDaysFromNow = 7;
+  }
+  let frequencyLabelFa = 'منظم';
+  if (avgForPredict <= 14) frequencyLabelFa = 'هفتگی · پرتکرار';
+  else if (avgForPredict <= 21) frequencyLabelFa = 'هر ۲ تا ۳ هفته';
+  else if (avgForPredict <= 35) frequencyLabelFa = 'ماهانه';
+  else frequencyLabelFa = 'با فاصله · نامنظم';
+  let confidence = 0.55;
+  if (total >= 5 && avg != null) confidence = 0.88;
+  else if (total >= 3 && avg != null) confidence = 0.78;
+  else if (total >= 1) confidence = 0.65;
+  if (daysSince != null && daysSince > 60) confidence = Math.max(0.6, confidence - 0.05);
+  confidence = Math.round(confidence * 100) / 100;
+  const lastDateFa = stats.lastVisitAt ? new Date(stats.lastVisitAt).toISOString().slice(0, 10) : '—';
+  const overdue = daysSince != null && avgForPredict != null && daysSince > avgForPredict;
+  let messageFa = '';
+  let message = '';
+  if (total === 0) {
+    messageFa = `سلام ${firstName} عزیز! هنوز دیداری ثبت نشده — بهترین زمان برای اولین تجربه، همین هفته است (${predictedDate}). خدمت «${favSvc}» را امتحان کن و استایل دلخواهت را بساز.`;
+    message = `Hi ${firstName}! No visits yet — the best time for your first experience is this week (${predictedDate}). Try "${favSvc}".`;
+  } else if (overdue) {
+    const overBy = daysSince! - avgForPredict;
+    messageFa = `سلام ${firstName} عزیز! حدود ${daysSince} روز از آخرین مراجعه‌ات (${lastDateFa}، ${favSvc}${favBarber ? ` با ${favBarber}` : ''}) گذشته — حدود ${overBy} روز از زمان معمولت (${avgForPredict} روز) عقب افتاده‌ای. پیشنهاد می‌کنیم همین فردا (${predictedDate}) نوبت بگیری${prefDayFa ? ` — معمولا ${prefDayFa}ها می‌آیی` : ''}.`;
+    message = `Hi ${firstName}! It's been ${daysSince} days since your last visit (${lastDateFa}). You're ${overBy} days overdue (usual ${avgForPredict}d). Book tomorrow (${predictedDate}).`;
+  } else {
+    const remain = predictedDaysFromNow ?? Math.max(1, avgForPredict - (daysSince ?? 0));
+    messageFa = `سلام ${firstName} عزیز! آخرین مراجعه‌ات ${lastDateFa} (${favSvc}) بود — با میانگین هر ${avgForPredict} روز، نوبت بعدی‌ات حدود ${predictedDate} (حدود ${remain} روز دیگر) مناسب است${prefDayFa ? `، معمولا ${prefDayFa}ها` : ''}${favBarber ? ` با ${favBarber}` : ''}. یادت نره رزرو کنی!`;
+    message = `Hi ${firstName}! Last visit ${lastDateFa} (${favSvc}). With avg ${avgForPredict}d, next visit around ${predictedDate} (${remain}d from now).`;
+  }
+  const insightsFa: string[] = [];
+  if (total === 0) insightsFa.push('مشتری جدید — پیام خوش‌آمد و پیشنهاد اولین خدمت');
+  else {
+    if (avgForPredict <= 14) insightsFa.push(`مراجعه پرتکرار هر ${avgForPredict} روز — پکیج نگهداری پیشنهاد دهید`);
+    if (avgForPredict >= 35) insightsFa.push(`فاصله طولانی (${avgForPredict} روز) — پیشنهاد بازگشت با تخفیف`);
+    if (overdue) insightsFa.push(`تاخیر ${daysSince! - avgForPredict} روزه — یادآوری فوری لازم است`);
+    if (stats.cancelled >= 2) insightsFa.push(`لغو مکرر (${stats.cancelled} بار) — قبل از رزرو تایید بگیرید`);
+    if (stats.noShow > 0) insightsFa.push(`${stats.noShow} بار عدم حضور — یادآوری پیامکی بفرستید`);
+    if (prefDayFa) insightsFa.push(`روز ترجیحی: ${prefDayFa}`);
+    if (favBarber) insightsFa.push(`آرایشگر محبوب: ${favBarber}`);
+    if (recentAppointments[0]?.serviceName) insightsFa.push(`آخرین خدمت: ${recentAppointments[0].serviceName}`);
+  }
+  if (!insightsFa.length) insightsFa.push('مشتری منظم — یادآوری ملایم کافی است');
+  const scored = services.map((s) => {
+    let score = 0;
+    const hay = `${s.name} ${s.description ?? ''}`.toLowerCase();
+    for (const fav of stats.favoriteServiceNames) if (fav && hay.includes(fav.toLowerCase().slice(0, 4))) score += 5;
+    if (recentAppointments[0]?.serviceName && hay.includes(recentAppointments[0].serviceName.toLowerCase().slice(0, 4))) score += 3;
+    return { s, score };
+  }).sort((a, b) => b.score - a.score);
+  const top = (scored[0]?.score ? scored.filter((x) => x.score > 0).slice(0, 3) : scored.slice(0, 3)).map((x) => x.s).slice(0, 3);
+  const suggestedServices = top.map((s, i) => ({
+    serviceId: s.id,
+    title: s.name,
+    titleFa: s.name,
+    reasonFa: `بر اساس علاقه به «${favSvc}» و آخرین خدمت «${recentAppointments[0]?.serviceName ?? 'تاریخچه'}» — مناسب برای نوبت بعدی در ${predictedDate ?? 'هفته آینده'}.`,
+    confidence: Math.round((0.88 - i * 0.08) * 100) / 100,
+  }));
+  if (!suggestedServices.length && services.length) {
+    suggestedServices.push(...services.slice(0, 2).map((s, i) => ({ serviceId: s.id, title: s.name, titleFa: s.name, reasonFa: 'خدمت پرطرفدار — پیشنهاد مناسب برای نوبت بعدی', confidence: 0.72 - i * 0.06 })));
+  }
+  return { predictedDate, predictedDaysFromNow, frequencyLabelFa, confidence, message, messageFa, insightsFa, suggestedServices: suggestedServices.slice(0, 3), meta: { provider: 'heuristic', model: 'heuristic-v1' } };
 }
 
 function esc(s: string): string {

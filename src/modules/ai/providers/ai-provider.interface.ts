@@ -66,6 +66,23 @@ export interface CustomerProfileInput {
 }
 export interface CustomerRecommendation { title: string; titleFa: string; reason: string; reasonFa: string; serviceId?: string; confidence: number; tags?: string[] }
 export interface CustomerProfileResult { summary: string; summaryFa: string; personaFa: string; insights: string[]; insightsFa: string[]; preferencesFa: string; recommendations: CustomerRecommendation[]; meta: { provider: string; model: string } }
+export interface SmartReminderInput {
+  customer: { id: string; name: string; family: string; username: string; phoneNumber?: string; createdAt?: string };
+  stats: { totalAppointments: number; completed: number; cancelled: number; noShow: number; pending: number; confirmed: number; lastVisitAt: string | null; firstVisitAt: string | null; avgDaysBetween: number | null; favoriteServiceNames: string[]; favoriteBarberName: string | null; preferredDayOfWeek: string | null; totalServices: number; daysSinceLastVisit: number | null };
+  recentAppointments: Array<{ date: string; serviceName: string; barberName: string; status: string }>;
+  services: Array<{ id: string; name: string; description?: string | null; price: number; duration: number }>;
+}
+export interface SmartReminderResult {
+  predictedDate: string | null;
+  predictedDaysFromNow: number | null;
+  frequencyLabelFa: string;
+  confidence: number;
+  message: string;
+  messageFa: string;
+  insightsFa: string[];
+  suggestedServices: Array<{ serviceId?: string; title: string; titleFa: string; reasonFa: string; confidence: number }>;
+  meta: { provider: string; model: string };
+}
 export interface AiProvider {
   readonly name: string;
   readonly model: string;
@@ -79,5 +96,6 @@ export interface AiProvider {
     input: ServiceRecommendInput,
   ): Promise<ServiceRecommendation[]>;
   customerProfile?(input: CustomerProfileInput): Promise<CustomerProfileResult>;
+  smartReminder?(input: SmartReminderInput): Promise<SmartReminderResult>;
 }
 export const AI_PROVIDER = 'AI_PROVIDER';

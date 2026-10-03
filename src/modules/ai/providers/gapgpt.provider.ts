@@ -8,6 +8,8 @@ import {
   HairRecommendation,
   ServiceRecommendInput,
   ServiceRecommendation,
+  SmartReminderInput,
+  SmartReminderResult,
 } from './ai-provider.interface';
 import { HeuristicProvider } from './heuristic.provider';
 
@@ -205,6 +207,39 @@ export class GapGptProvider implements AiProvider {
     } catch {
       return this.fallback.recommendServices(input);
     }
+  }
+
+  async smartReminder(input: SmartReminderInput): Promise<SmartReminderResult> {
+    if (!process.env.AI_API_KEY) return this.fallback.smartReminder!(input);
+    const base = String(process.env.AI_API_URL || 'https://api.gapgpt.app/v1').replace(/\/$/, '');
+    const apiKey = process.env.AI_API_KEY;
+    const timeoutMs = Number(process.env.AI_SMART_REMINDER_TIMEOUT_MS || 12000);
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), timeoutMs);
+      const res = await fetch(`${base}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        signal: ctrl.signal,
+        body: JSON.stringify({
+          model: this.model,
+          response_format: { type: 'json_object' },
+          messages: [
+            { role: 'system', content: 'You are a barber reminder assistant. Given customer history JSON (visits, frequency, favorite services, last visit, avg interval), predict next appointment date (YYYY-MM-DD), days from now, frequency label in Persian, confidence 0-1, and a short personalized Persian reminder message (messageFa) plus message English and insightsFa array. Also suggest 1-3 services from the provided list relevant to next visit. Return JSON {predictedDate,predictedDaysFromNow,frequencyLabelFa,confidence,message,messageFa,insightsFa[],suggestedServices:[{serviceId,title,titleFa,reasonFa,confidence}]}. Persian required for Fa fields. No markdown. If no history, predict ~14 days from today.' },
+            { role: 'user', content: JSON.stringify({ ...input, today: new Date().toISOString().slice(0, 10) }) },
+          ],
+          max_tokens: 900, temperature: 0.3,
+        }),
+      });
+      clearTimeout(t);
+      if (!res.ok) return this.fallback.smartReminder!(input);
+      const j: any = await res.json();
+      const p = extractJson(j?.choices?.[0]?.message?.content ?? '');
+      if (!p?.messageFa) return this.fallback.smartReminder!(input);
+      const validIds = new Set(input.services.map((s) => s.id));
+      const sug = Array.isArray(p.suggestedServices) ? p.suggestedServices.filter((r: any) => !r.serviceId || validIds.has(String(r.serviceId))).slice(0, 3).map((r: any, i: number) => ({ serviceId: r.serviceId ? String(r.serviceId) : undefined, title: String(r.title ?? ''), titleFa: String(r.titleFa ?? r.title ?? ''), reasonFa: String(r.reasonFa ?? ''), confidence: typeof r.confidence === 'number' ? r.confidence : 0.82 - i * 0.07 })) : [];
+      return { predictedDate: p.predictedDate ? String(p.predictedDate).slice(0, 10) : null, predictedDaysFromNow: typeof p.predictedDaysFromNow === 'number' ? p.predictedDaysFromNow : null, frequencyLabelFa: String(p.frequencyLabelFa ?? ''), confidence: typeof p.confidence === 'number' ? p.confidence : 0.78, message: String(p.message ?? ''), messageFa: String(p.messageFa ?? ''), insightsFa: Array.isArray(p.insightsFa) ? p.insightsFa.map(String) : [], suggestedServices: sug, meta: { provider: this.name, model: this.model } };
+    } catch { return this.fallback.smartReminder!(input); }
   }
 
   async customerProfile(input: CustomerProfileInput): Promise<CustomerProfileResult> {

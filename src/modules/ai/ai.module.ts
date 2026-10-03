@@ -12,6 +12,8 @@ import { AiService } from './ai.service';
 import { AiPreviewController } from './ai-preview.controller';
 import { AiServiceRecommendController } from './ai-service-recommend.controller';
 import { AiCustomerProfileController } from './ai-customer-profile.controller';
+import { AiSmartReminderController } from './ai-smart-reminder.controller';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 function providerFactory() {
   if (process.env.AI_API_URL && process.env.AI_API_KEY) {
@@ -21,12 +23,13 @@ function providerFactory() {
 }
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Service, User, Appointment, Barber])],
+  imports: [TypeOrmModule.forFeature([Service, User, Appointment, Barber]), NotificationsModule],
   controllers: [
     AiController,
     AiPreviewController,
     AiServiceRecommendController,
     AiCustomerProfileController,
+    AiSmartReminderController,
   ],
   providers: [{ provide: AI_PROVIDER, useFactory: providerFactory }, AiService],
   exports: [AiService],

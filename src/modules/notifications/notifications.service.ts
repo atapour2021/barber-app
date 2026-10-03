@@ -165,6 +165,31 @@ export class NotificationsService {
     }
   }
 
+  async notifySmartReminder(
+    userId: string,
+    messageFa: string,
+    data: Record<string, any>,
+  ): Promise<Notification> {
+    if (!userId?.trim()) throw new NotFoundException('User not found');
+    const dedup = await this.repo.findOne({
+      where: {
+        userId,
+        type: NotificationType.SMART_REMINDER,
+        createdAt: MoreThan(new Date(Date.now() - 20 * 60 * 60 * 1000) as any),
+      },
+      order: { createdAt: 'DESC' } as any,
+    });
+    if (dedup) return dedup;
+    return this.createAndDispatch(
+      userId,
+      NotificationType.SMART_REMINDER,
+      'یادآور هوشمند نوبت',
+      messageFa,
+      data?.predictedDate ? null : null,
+      { ...data, kind: 'smart_reminder' },
+    );
+  }
+
   async sendDueReminders(repo?: Repository<Appointment>): Promise<number> {
     const r = repo ?? this.appointmentRepo;
     if (!r) return 0;
