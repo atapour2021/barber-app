@@ -10,35 +10,17 @@ import { Service } from '../services/entities/service.entity';
 import { Appointment } from '../appointments/entities/appointment.entity';
 import { AppointmentStatus } from 'src/enums/appointment-status';
 import { SlotStatus } from './dto/get-availability.dto';
+import {
+  fmtMinutes,
+  isPastTehran,
+  parseHHmm,
+  tehranSlotUtc,
+  tehranYMD,
+  weekdayTehran,
+} from 'src/common/utils/tehran-date.util';
 
 const HHMM = /^\d{2}:\d{2}$/;
 
-function toYMD(d: Date | string): string {
-  return new Date(d).toISOString().slice(0, 10);
-}
-function dayName(dateStr: string): string {
-  return [
-    'sunday',
-    'monday',
-    'tuesday',
-    'wednesday',
-    'thursday',
-    'friday',
-    'saturday',
-  ][new Date(dateStr + 'T12:00:00.000Z').getUTCDay()];
-}
-function isPastDate(dateStr: string): boolean {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  return new Date(dateStr + 'T00:00:00.000Z') < today;
-}
-function parseHHmm(v: string): number {
-  const [h, m] = v.split(':').map(Number);
-  return h * 60 + m;
-}
-function fmt(m: number): string {
-  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-}
 function isHHmmRange(v: any): boolean {
   return (
     v &&
@@ -73,7 +55,7 @@ export class AvailabilityService {
   async getAvailability(barberId: string, dateStr: string, serviceId?: string) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr))
       throw new BadRequestException('date must be YYYY-MM-DD');
-    if (isPastDate(dateStr))
+    if (isPastTehran(dateStr))
       throw new BadRequestException('Date cannot be in the past');
 
     const barber = await this.barberRepo.findOne({ where: { id: barberId } });
@@ -81,7 +63,7 @@ export class AvailabilityService {
     if (!barber.isActive || barber.status !== 'active')
       throw new BadRequestException('Barber not available');
 
-    const dName = dayName(dateStr);
+    const dName = weekdayTehran(dateStr);
     if (barber.holidays?.includes(dateStr)) {
       return {
         date: dateStr,
@@ -143,7 +125,7 @@ export class AvailabilityService {
     });
     const booked = existing
       .filter(
-        (a) => toYMD(a.startTime) === dateStr || toYMD(a.date) === dateStr,
+        (a) => tehranYMD(a.startTime) === dateStr || tehranYMD(a.date) === dateStr,
       )
       .map((a) => ({
         s: new Date(a.startTime).getTime(),
@@ -162,13 +144,13 @@ export class AvailabilityService {
       const inBreak =
         bStart !== null && bEnd !== null && overlaps(sMin, eMin, bStart, bEnd);
       if (inBreak) continue;
-      const start = new Date(`${dateStr}T${fmt(sMin)}:00.000Z`);
+      const start = tehranSlotUtc(dateStr, fmtMinutes(sMin));
       const end = new Date(start.getTime() + duration * 60000);
       const isBooked = booked.some(
         (b) => start.getTime() < b.e && end.getTime() > b.s,
       );
       slots.push({
-        time: fmt(sMin),
+        time: fmtMinutes(sMin),
         startTime: start.toISOString(),
         endTime: end.toISOString(),
         status: isBooked ? SlotStatus.Booked : SlotStatus.Available,

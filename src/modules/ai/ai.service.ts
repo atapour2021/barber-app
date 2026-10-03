@@ -26,6 +26,13 @@ import type {
   SmartReminderResult,
 } from './providers/ai-provider.interface';
 import { HeuristicProvider } from './providers/heuristic.provider';
+import {
+  jalaliFa,
+  tehranEndOfDayUtc,
+  tehranMidnightUtc,
+  tehranYMD,
+  weekdayTehran,
+} from 'src/common/utils/tehran-date.util';
 
 @Injectable()
 export class AiService {
@@ -62,14 +69,17 @@ export class AiService {
       if (sName) { const cur = svcCount.get(sName); svcCount.set(sName, { name: sName, c: (cur?.c ?? 0) + 1 }); }
       const bName = (a as any).barber?.fullName ?? String((a as any).barberId ?? '');
       if (bName) { const cur = barberCount.get(bName); barberCount.set(bName, { name: bName, c: (cur?.c ?? 0) + 1 }); }
-      try { const d = new Date(a.startTime as any); const day = days[d.getUTCDay()]; dayCount.set(day, (dayCount.get(day) ?? 0) + 1); } catch {}
+      try {
+        const day = weekdayTehran(tehranYMD(a.startTime as any));
+        dayCount.set(day, (dayCount.get(day) ?? 0) + 1);
+      } catch {}
     }
     const favoriteServiceNames = [...svcCount.values()].sort((a, b) => b.c - a.c).slice(0, 3).map((x) => x.name);
     const favoriteBarberName = [...barberCount.values()].sort((a, b) => b.c - a.c)[0]?.name ?? null;
     let preferredDayOfWeek: string | null = null;
     let maxDay = 0;
     for (const [k, v] of dayCount) if (v > maxDay) { maxDay = v; preferredDayOfWeek = k; }
-    const recentAppointments = appointments.slice(0, 5).map((a) => ({ date: new Date(a.startTime as any).toISOString().slice(0, 10), serviceName: (a as any).service?.name ?? '', barberName: (a as any).barber?.fullName ?? '', status: String(a.status) }));
+    const recentAppointments = appointments.slice(0, 5).map((a) => ({ date: tehranYMD(a.startTime as any), serviceName: (a as any).service?.name ?? '', barberName: (a as any).barber?.fullName ?? '', status: String(a.status) }));
     const daysSinceLastVisit = lastVisitAt ? Math.floor((Date.now() - new Date(lastVisitAt).getTime()) / 86400000) : null;
     return {
       customer: { id: user.id, name: (user as any).name, family: (user as any).family, username: (user as any).username, phoneNumber: (user as any).phoneNumber, createdAt: (user as any).createdAt ? new Date((user as any).createdAt).toISOString() : undefined },
@@ -108,14 +118,17 @@ export class AiService {
       if (sName) { const cur = svcCount.get(sName); svcCount.set(sName, { name: sName, c: (cur?.c ?? 0) + 1 }); }
       const bName = (a as any).barber?.fullName ?? String((a as any).barberId ?? '');
       if (bName) { const cur = barberCount.get(bName); barberCount.set(bName, { name: bName, c: (cur?.c ?? 0) + 1 }); }
-      try { const d = new Date(a.startTime as any); const day = days[d.getUTCDay()]; dayCount.set(day, (dayCount.get(day) ?? 0) + 1); } catch {}
+      try {
+        const day = weekdayTehran(tehranYMD(a.startTime as any));
+        dayCount.set(day, (dayCount.get(day) ?? 0) + 1);
+      } catch {}
     }
     const favoriteServiceNames = [...svcCount.values()].sort((a, b) => b.c - a.c).slice(0, 3).map((x) => x.name);
     const favoriteBarberName = [...barberCount.values()].sort((a, b) => b.c - a.c)[0]?.name ?? null;
     let preferredDayOfWeek: string | null = null;
     let maxDay = 0;
     for (const [k, v] of dayCount) if (v > maxDay) { maxDay = v; preferredDayOfWeek = k; }
-    const recentAppointments = appointments.slice(0, 5).map((a) => ({ date: new Date(a.startTime as any).toISOString().slice(0, 10), serviceName: (a as any).service?.name ?? '', barberName: (a as any).barber?.fullName ?? '', status: String(a.status) }));
+    const recentAppointments = appointments.slice(0, 5).map((a) => ({ date: tehranYMD(a.startTime as any), serviceName: (a as any).service?.name ?? '', barberName: (a as any).barber?.fullName ?? '', status: String(a.status) }));
     const input: CustomerProfileInput = {
       customer: { id: user.id, name: (user as any).name, family: (user as any).family, username: (user as any).username, phoneNumber: (user as any).phoneNumber, createdAt: (user as any).createdAt ? new Date((user as any).createdAt).toISOString() : undefined },
       stats: { totalAppointments: appointments.length, completed, cancelled, noShow, pending, confirmed, lastVisitAt, firstVisitAt, avgDaysBetween, favoriteServiceNames, favoriteBarberName, preferredDayOfWeek, totalServices: svcCount.size },
@@ -170,13 +183,13 @@ export class AiService {
     const hasDays = Number.isFinite(daysIn) && daysIn >= 7 && daysIn <= 365;
     let toD: Date;
     if ((query as any).to) {
-      const t = new Date(String((query as any).to).slice(0, 10) + 'T23:59:59.999Z');
+      const t = tehranEndOfDayUtc(String((query as any).to).slice(0, 10));
       toD = isNaN(t.getTime()) ? new Date() : t;
     } else toD = new Date();
     toD.setUTCHours(23, 59, 59, 999);
     let fromD: Date;
     if ((query as any).from) {
-      const f = new Date(String((query as any).from).slice(0, 10) + 'T00:00:00.000Z');
+      const f = tehranMidnightUtc(String((query as any).from).slice(0, 10));
       fromD = isNaN(f.getTime()) ? new Date(toD.getTime() - 29 * 86400000) : f;
       fromD.setUTCHours(0, 0, 0, 0);
     } else {
@@ -202,7 +215,7 @@ export class AiService {
     const avgPerCompleted = completed.length ? revenueTotal / completed.length : 0;
     const byDayMap = new Map<string, { count: number; revenue: number }>();
     for (const a of inPeriod) {
-      const k = new Date((a as any).startTime).toISOString().slice(0, 10);
+      const k = tehranYMD((a as any).startTime);
       const cur = byDayMap.get(k) ?? { count: 0, revenue: 0 };
       cur.count++;
       if (String(a.status) === 'completed') cur.revenue += Number((a as any).service?.price ?? 0);
@@ -266,7 +279,7 @@ export class AiService {
       else if (last7Rev) weekOverWeekRevenueChange = 1;
     }
     const input: BusinessInsightsInput = {
-      period: { from: fromD.toISOString().slice(0, 10), to: toD.toISOString().slice(0, 10), days },
+      period: { from: tehranYMD(fromD), to: tehranYMD(toD), days },
       totals: { totalAppointments: total, pending: pending.length, confirmed: confirmed.length, completed: completed.length, cancelled: cancelled.length, noShow: noShow.length },
       revenue: { total: Math.round(revenueTotal * 100) / 100, avgPerCompleted: Math.round(avgPerCompleted * 100) / 100, byDay: revenueByDay },
       topServices,

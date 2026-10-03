@@ -22,6 +22,12 @@ import {
   CreateSettingDto,
 } from './dto/update-user.dto';
 import { AppointmentStatus } from '../../enums/appointment-status';
+import {
+  tehranEndOfDayUtc,
+  tehranMidnightUtc,
+  tehranYMD,
+  todayTehranYMD,
+} from 'src/common/utils/tehran-date.util';
 
 const ALLOWED: Record<string, string[]> = {
   [AppointmentStatus.PENDING]: [
@@ -85,12 +91,12 @@ export class AdminService {
         where: { status: AppointmentStatus.CANCELLED },
       }),
     ]);
-    const d = new Date().toISOString().slice(0, 10);
+    const d = todayTehranYMD();
     const todayAppointments = await this.appointments.count({
       where: {
         startTime: Between(
-          new Date(d + 'T00:00:00.000Z') as any,
-          new Date(d + 'T23:59:59.999Z') as any,
+          tehranMidnightUtc(d) as any,
+          tehranEndOfDayUtc(d) as any,
         ),
       },
     });
@@ -423,8 +429,8 @@ export class AdminService {
     if (q.status) qb.andWhere('a.status = :status', { status: q.status });
     if (q.barberId)
       qb.andWhere('a.barberId = :barberId', { barberId: q.barberId });
-    if (q.from) qb.andWhere('a.startTime >= :from', { from: new Date(q.from) });
-    if (q.to) qb.andWhere('a.startTime <= :to', { to: new Date(q.to) });
+    if (q.from) qb.andWhere('a.startTime >= :from', { from: tehranMidnightUtc(String(q.from).slice(0, 10)) });
+    if (q.to) qb.andWhere('a.startTime <= :to', { to: tehranEndOfDayUtc(String(q.to).slice(0, 10)) });
     if ((q.search || '').trim())
       qb.andWhere('(a.notes LIKE :s)', { s: `%${(q.search || '').trim()}%` });
     qb.orderBy('a.startTime', q.order === 'ASC' ? 'ASC' : 'DESC')
@@ -484,8 +490,8 @@ export class AdminService {
       'a.barber',
       'barber',
     );
-    if (q.from) qb.andWhere('a.startTime >= :from', { from: new Date(q.from) });
-    if (q.to) qb.andWhere('a.startTime <= :to', { to: new Date(q.to) });
+    if (q.from) qb.andWhere('a.startTime >= :from', { from: tehranMidnightUtc(String(q.from).slice(0, 10)) });
+    if (q.to) qb.andWhere('a.startTime <= :to', { to: tehranEndOfDayUtc(String(q.to).slice(0, 10)) });
     const items = await qb.getMany();
     const byStatus: Record<string, number> = {};
     for (const a of items) byStatus[a.status] = (byStatus[a.status] || 0) + 1;
@@ -494,8 +500,8 @@ export class AdminService {
       .reduce((s, a: any) => s + Number(a.service?.price || 0), 0);
     const byDay: Record<string, number> = {};
     for (const a of items)
-      byDay[new Date(a.startTime).toISOString().slice(0, 10)] =
-        (byDay[new Date(a.startTime).toISOString().slice(0, 10)] || 0) + 1;
+      byDay[tehranYMD(a.startTime)] =
+        (byDay[tehranYMD(a.startTime)] || 0) + 1;
     const byBarber: Record<string, number> = {};
     for (const a of items)
       byBarber[a.barberId] = (byBarber[a.barberId] || 0) + 1;

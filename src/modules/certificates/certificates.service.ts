@@ -10,6 +10,10 @@ import { Certificate } from './entities/certificate.entity';
 import { Barber } from '../barbers/entities/barber.entity';
 import { CreateCertificateDto } from './dto/create-certificate.dto';
 import { UpdateCertificateDto } from './dto/update-certificate.dto';
+import {
+  tehranMidnightUtc,
+  tehranYMD,
+} from 'src/common/utils/tehran-date.util';
 
 function isAdmin(role?: string) {
   const r = String(role || '').toLowerCase();
@@ -47,8 +51,8 @@ export class CertificatesService {
       this.repo.create({
         name: dto.name,
         issuer: dto.issuer,
-        issueDate: new Date(dto.issueDate),
-        expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
+        issueDate: tehranMidnightUtc(dto.issueDate.slice(0, 10)),
+        expiryDate: dto.expiryDate ? tehranMidnightUtc(dto.expiryDate.slice(0, 10)) : undefined,
         barberId: dto.barberId,
       } as any),
     );
@@ -99,19 +103,19 @@ export class CertificatesService {
       await this.assertBarberOwnership(targetBarberId, actor);
     }
     const issueDate =
-      (dto as any).issueDate || existing.issueDate.toISOString().slice(0, 10);
+      (dto as any).issueDate || tehranYMD(existing.issueDate);
     const expiryDate =
       (dto as any).expiryDate !== undefined
         ? (dto as any).expiryDate
-        : existing.expiryDate?.toISOString().slice(0, 10);
+        : existing.expiryDate ? tehranYMD(existing.expiryDate) : undefined;
     if ((dto as any).issueDate || (dto as any).expiryDate)
       this.validateDates(issueDate, expiryDate);
     const patch: any = { ...dto };
     if ((dto as any).issueDate)
-      patch.issueDate = new Date((dto as any).issueDate);
+      patch.issueDate = tehranMidnightUtc((dto as any).issueDate.slice(0, 10));
     if ((dto as any).expiryDate !== undefined)
       patch.expiryDate = (dto as any).expiryDate
-        ? new Date((dto as any).expiryDate)
+        ? tehranMidnightUtc((dto as any).expiryDate.slice(0, 10))
         : null;
     if (Object.keys(patch).length) await this.repo.update(id, patch);
     return this.findOne(id);

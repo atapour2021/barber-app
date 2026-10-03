@@ -15,6 +15,16 @@ import { CreateAppointmentDto } from './dto/create-appointment.dto';
 import { UpdateAppointmentDto } from './dto/update-appointment.dto';
 import { AppointmentStatus } from 'src/enums/appointment-status';
 import { NotificationEvents } from '../notifications/notifications.events';
+import {
+  fmtMinutes,
+  isPastTehran,
+  parseHHmm,
+  tehranMidnightUtc,
+  tehranMinutes,
+  tehranSlotUtc,
+  tehranYMD,
+  weekdayTehran,
+} from 'src/common/utils/tehran-date.util';
 
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   [AppointmentStatus.PENDING]: [
@@ -29,39 +39,6 @@ const ALLOWED_TRANSITIONS: Record<string, string[]> = {
 };
 
 const HHMM = /^\d{2}:\d{2}$/;
-
-function toYMD(d: Date | string): string {
-  const date = new Date(d);
-  return date.toISOString().slice(0, 10);
-}
-
-function parseHHmm(v: string): number {
-  const [h, m] = v.split(':').map(Number);
-  return h * 60 + m;
-}
-
-function fmt(m: number): string {
-  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
-}
-
-function dayName(dateStr: string): string {
-  return [
-    'sunday',
-    'monday',
-    'tuesday',
-    'wednesday',
-    'thursday',
-    'friday',
-    'saturday',
-  ][new Date(dateStr + 'T12:00:00.000Z').getUTCDay()];
-}
-
-function isPastDate(dateStr: string): boolean {
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
-  const d = new Date(dateStr + 'T00:00:00.000Z');
-  return d < today;
-}
 
 function isHHmmRange(v: any): boolean {
   return (
@@ -124,7 +101,7 @@ export class AppointmentsService {
     start: Date,
     end: Date,
   ) {
-    const dName = dayName(dateStr);
+    const dName = weekdayTehran(dateStr);
     if (barber.workingDays && barber.workingDays.length) {
       if (!barber.workingDays.map((d) => d.toLowerCase()).includes(dName))
         throw new BadRequestException(`Barber not working on ${dName}`);
@@ -137,8 +114,8 @@ export class AppointmentsService {
     if (barber.workingHours && Object.keys(barber.workingHours).length && !wh)
       throw new BadRequestException(`No working hours for ${dName}`);
     if (wh) {
-      const startMin = start.getUTCHours() * 60 + start.getUTCMinutes();
-      const endMin = end.getUTCHours() * 60 + end.getUTCMinutes();
+      const startMin = tehranMinutes(start);
+      const endMin = tehranMinutes(end);
       const wStart = parseHHmm(wh.start);
       const wEnd = parseHHmm(wh.end);
       if (startMin < wStart || endMin > wEnd)
@@ -171,7 +148,7 @@ export class AppointmentsService {
       },
     });
     const sameDay = existing.filter(
-      (a) => toYMD(a.date) === dateStr || toYMD(a.startTime) === dateStr,
+      (a) => tehranYMD(a.date) === dateStr || tehranYMD(a.startTime) === dateStr,
     );
     for (const a of sameDay) {
       if (excludeId && a.id === excludeId) continue;
@@ -184,9 +161,9 @@ export class AppointmentsService {
 
   async availableSlots(barberId: string, dateStr: string, serviceId?: string) {
     const barber = await this.getBarberOrFail(barberId);
-    if (isPastDate(dateStr))
+    if (isPastTehran(dateStr))
       throw new BadRequestException('Date cannot be in the past');
-    const dName = dayName(dateStr);
+    const dName = weekdayTehran(dateStr);
     if (barber.holidays?.includes(dateStr))
       return {
         date: dateStr,
@@ -238,7 +215,7 @@ export class AppointmentsService {
       },
     });
     const sameDay = existing.filter(
-      (a) => toYMD(a.startTime) === dateStr || toYMD(a.date) === dateStr,
+      (a) => tehranYMD(a.startTime) === dateStr || tehranYMD(a.date) === dateStr,
     );
     const booked = sameDay.map((a) => ({
       s: new Date(a.startTime).getTime(),
@@ -259,13 +236,13 @@ export class AppointmentsService {
         overlaps(sMin, eMin, bStart, bEnd)
       )
         continue;
-      const start = new Date(`${dateStr}T${fmt(sMin)}:00.000Z`);
+      const start = tehranSlotUtc(dateStr, fmtMinutes(sMin));
       const end = new Date(start.getTime() + duration * 60000);
       const isBooked = booked.some(
         (b) => start.getTime() < b.e && end.getTime() > b.s,
       );
       slots.push({
-        time: fmt(sMin),
+        time: fmtMinutes(sMin),
         startTime: start.toISOString(),
         endTime: end.toISOString(),
         status: isBooked ? 'Booked' : 'Available',
@@ -293,7 +270,7 @@ export class AppointmentsService {
       throw new BadRequestException('Invalid time');
     if (start >= end)
       throw new BadRequestException('startTime must be before endTime');
-    if (toYMD(start) !== dateStr || toYMD(end) !== dateStr)
+    if (tehranYMD(start) !== dateStr || tehranYMD(end) !== dateStr)
       throw new BadRequestException('startTime/endTime must match date');
     if (start.getTime() < Date.now() - 60000)
       throw new BadRequestException('Cannot book in the past');
@@ -312,7 +289,7 @@ export class AppointmentsService {
         },
       });
       const sameDay = existing.filter(
-        (a) => toYMD(a.startTime) === dateStr || toYMD(a.date) === dateStr,
+        (a) => tehranYMD(a.startTime) === dateStr || tehranYMD(a.date) === dateStr,
       );
       for (const a of sameDay) {
         const s = new Date(a.startTime).getTime();
@@ -324,7 +301,7 @@ export class AppointmentsService {
         barberId: dto.barberId,
         serviceId: dto.serviceId,
         userId: actor.id,
-        date: new Date(dateStr + 'T00:00:00.000Z'),
+        date: tehranMidnightUtc(dateStr),
         startTime: start,
         endTime: end,
         status: AppointmentStatus.PENDING,
@@ -350,7 +327,7 @@ export class AppointmentsService {
     const where: any = {};
     if (query.status) where.status = query.status;
     if (query.barberId) where.barberId = query.barberId;
-    if (query.date) where.date = new Date(query.date) as any;
+    if (query.date) where.date = tehranMidnightUtc(String(query.date).slice(0, 10)) as any;
     const hasPaging = query.page !== undefined || query.limit !== undefined;
     const doFind = async (w: any) => {
       if (!hasPaging)

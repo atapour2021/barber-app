@@ -14,6 +14,15 @@ import {
   SmartReminderResult,
 } from './ai-provider.interface';
 import { HeuristicProvider } from './heuristic.provider';
+const TEHRAN_TZ = 'Asia/Tehran';
+function tehranYMD(d: Date | string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TEHRAN_TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(d));
+}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const isRetryable = (status: number, body: string) =>
@@ -228,7 +237,7 @@ export class GapGptProvider implements AiProvider {
           response_format: { type: 'json_object' },
           messages: [
             { role: 'system', content: 'You are a barber reminder assistant. Given customer history JSON (visits, frequency, favorite services, last visit, avg interval), predict next appointment date (YYYY-MM-DD), days from now, frequency label in Persian, confidence 0-1, and a short personalized Persian reminder message (messageFa) plus message English and insightsFa array. Also suggest 1-3 services from the provided list relevant to next visit. Return JSON {predictedDate,predictedDaysFromNow,frequencyLabelFa,confidence,message,messageFa,insightsFa[],suggestedServices:[{serviceId,title,titleFa,reasonFa,confidence}]}. Persian required for Fa fields. No markdown. If no history, predict ~14 days from today.' },
-            { role: 'user', content: JSON.stringify({ ...input, today: new Date().toISOString().slice(0, 10) }) },
+            { role: 'user', content: JSON.stringify({ ...input, today: tehranYMD(new Date()) }) },
           ],
           max_tokens: 900, temperature: 0.3,
         }),

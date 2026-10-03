@@ -44,9 +44,10 @@ async function hash(p: string) {
   return bcrypt.hash(p, 10);
 }
 
+const TEHRAN_OFFSET = '+03:30';
 function isoFuture(days: number) {
   const d = new Date(Date.now() + days * 86400000);
-  return d.toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tehran', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
 }
 
 async function main() {
@@ -369,11 +370,11 @@ async function main() {
     status: string,
     notes?: string,
   ) => {
-    const st = new Date(`${date}T${start}:00.000Z`);
+    const st = new Date(`${date}T${start}:00${TEHRAN_OFFSET}`);
     const en = new Date(st.getTime() + duration * 60000);
     return {
       id: randomUUID(),
-      date: new Date(date + 'T00:00:00.000Z') as any,
+      date: new Date(date + 'T00:00:00' + TEHRAN_OFFSET) as any,
       startTime: st as any,
       endTime: en as any,
       status,

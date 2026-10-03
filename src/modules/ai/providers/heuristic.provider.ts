@@ -1,4 +1,7 @@
 import { Injectable } from '@nestjs/common';
+const TEHRAN_TZ='Asia/Tehran';
+function tehranYMD(d:Date|string){ return new Intl.DateTimeFormat('en-CA',{timeZone:TEHRAN_TZ,year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(d)); }
+function jalaliFa(d:Date|string){ try{ return new Intl.DateTimeFormat('fa-IR-u-ca-persian',{timeZone:TEHRAN_TZ,year:'numeric',month:'long',day:'numeric'}).format(new Date(d)); }catch{ return tehranYMD(d); } }
 import {
   AiAnalysisResult,
   AiProvider,
@@ -437,15 +440,15 @@ async function smartReminderHeuristic(input: SmartReminderInput): Promise<SmartR
     const diffFromNow = Math.round((predicted.getTime() - now.getTime()) / 86400000);
     if (diffFromNow <= 0) {
       const tomorrow = new Date(now.getTime() + 86400000);
-      predictedDate = tomorrow.toISOString().slice(0, 10);
+      predictedDate = tehranYMD(tomorrow);
       predictedDaysFromNow = 1;
     } else {
-      predictedDate = predicted.toISOString().slice(0, 10);
+      predictedDate = tehranYMD(predicted);
       predictedDaysFromNow = diffFromNow;
     }
   } else {
     const soon = new Date(now.getTime() + 7 * 86400000);
-    predictedDate = soon.toISOString().slice(0, 10);
+    predictedDate = tehranYMD(soon);
     predictedDaysFromNow = 7;
   }
   let frequencyLabelFa = 'منظم';

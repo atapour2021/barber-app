@@ -8,12 +8,22 @@ import { Appointment } from '../appointments/entities/appointment.entity';
 import { Barber } from '../barbers/entities/barber.entity';
 import { QueryNotificationDto } from './dto/query-notification.dto';
 
+import {
+  jalaliFa,
+  tehranTime,
+  tehranYMD,
+} from 'src/common/utils/tehran-date.util';
+
 function fmtDate(d: Date | string): string {
-  return new Date(d).toISOString().slice(0, 10);
+  try {
+    return jalaliFa(d);
+  } catch {
+    return tehranYMD(d);
+  }
 }
 
 function fmtTime(d: Date | string): string {
-  return new Date(d).toISOString().slice(11, 16);
+  return tehranTime(d);
 }
 
 @Injectable()
