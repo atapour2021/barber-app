@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../../common/decorators';
 import { JwtAuthGuard, RolesGuard } from '../../common/guards';
@@ -19,5 +19,19 @@ export class ChatController {
     const role = (user?.role ?? 'customer') as ChatRole;
     const res = await this.chat.reply(dto.message, role, dto.history as any);
     return { ...res, role };
+  }
+  @Roles(Role.USER, Role.CUSTOMER, Role.BARBER, Role.ADMIN, Role.SUPER_ADMIN)
+  @Get('faqs')
+  @ApiOperation({ summary: 'Chatbot FAQs by role' })
+  faqs(@Query('role') role: string, @CurrentUser() user: any) {
+    const r = (role || user?.role || 'customer') as ChatRole;
+    const isBarber = r === 'barber';
+    const isAdmin = r === 'admin' || r === 'super_admin';
+    const items = isBarber
+      ? ['نوبت‌های امروز', 'مدیریت برنامه کاری', 'افزودن خدمت', 'برنامه کاری', 'وضعیت نوبت‌ها']
+      : isAdmin
+        ? ['داشبورد', 'مدیریت کاربران', 'مدیریت نوبت‌ها', 'تنظیمات']
+        : ['رزرو نوبت', 'خدمات و قیمت', 'معرفی آرایشگران', 'پیگیری نوبت', 'کیف پول', 'مشاور هوشمند'];
+    return { role: r, items };
   }
 }
